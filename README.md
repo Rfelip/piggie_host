@@ -9,75 +9,40 @@ A generic, lightweight, and dependency-free utility for hosting game servers (Fa
 *   **Interactive Manager:** Remote terminal UI for installing games, managing instances, and editing settings.
 *   **State Tracking:** Tracks installation progress (Red/Green status) for different game engines.
 *   **Advanced Save Handling:** Synchronize saves (Upload/Download) and perform Quick Backups with automatic timestamping.
+*   **Automated Backups:** Scheduled local backups with **Google Drive Sync** (via Rclone).
 *   **Resource Optimized:** Minimal overhead by running directly on the OS ("Bare Metal").
+*   **ARM Ready:** Built-in support for Arch Linux ARM and Box64 emulation.
 
 ## Project Structure
 
 *   `main.ps1`: **The Main Entry Point.** Local PowerShell script to deploy, manage, or sync saves.
-*   `scripts/`:
-    *   `deploy.ps1`: Orchestrates file upload and environment bootstrapping.
-    *   `manager.sh`: The interactive Bash UI that runs on the server.
-    *   `sync_saves.ps1`: Local utility for transferring game saves.
-    *   `connect.ps1`: Helper for SSH/Plink connections.
-    *   `setup/`: Modular remote setup scripts (Resource check, Deps).
-*   `games/`: Game-specific logic plugins (Factorio, Minecraft, Terraria).
-    *   `install.sh` / `start.sh`: Engine-specific lifecycle scripts.
-    *   `game.ini`: Metadata for save formats and paths.
-    *   `install_config.ini`: Tracks local installation state.
+*   `scripts/`: Core logic and utilities.
+*   `games/`: Game plugins (Factorio, Minecraft, Terraria).
 *   `configs/`: Server instances (e.g., `TBR2026`).
-    *   `settings.sh`: System config for the manager.
-*   `env/`: Local configuration and SSH keys (Ignored by Git).
+*   `docs/`: Detailed documentation and guides.
 
-## Usage
+## Quick Start
 
 1.  **Configure:** 
-    Place your SSH key in `env/` and edit `env/.env` with your `SERVER_IP` and `SERVER_USER`.
+    *   Create `env/.env` (see `.env.example`).
+    *   Add your SSH Key (`env/pvk.ppk`).
     
-2.  **Run the Orchestrator:**
+2.  **Deploy:**
     ```powershell
     .\main.ps1
     ```
-    *   **Option 1 (Deploy):** Uploads scripts and installs dependencies (Screen, Tmux, Java, etc.) on the server.
-    *   **Option 2 (Manage):** Connects to the remote server and opens the Interactive Manager.
-    *   **Option 3 (Sync):** Opens the Save Manager to upload, download, or backup your worlds.
+    Select **Option 1 (Deploy)** to install dependencies and upload scripts.
 
-3.  **In the Remote Manager:**
-    *   Use **"Install Game"** to download binaries (Installed games appear in **Green**).
-    *   Use **"Manage Servers"** to Start, Stop, or Edit settings.
+3.  **Manage:**
+    Select **Option 2 (Connect)** to open the Remote Manager.
 
-## Setting up Cloud Backups (Google Drive)
+## Documentation & Tutorials
 
-Since your server is headless (no browser), follow these steps to link your account:
+*   **[Setting up Google Drive Backups](docs/setup_google_drive.md):** How to configure cloud backups using "Headless Auth".
+*   **[Adding New Games](docs/adding_games.md):** Guide to creating plugins for new games (Valheim, CS:GO, etc.).
+*   **[Troubleshooting & Recovery](docs/troubleshooting.md):** Common issues, recovery from disconnects, and performance tuning.
 
-1.  **On the Server (via Manager):**
-    *   Go to **Manage Servers** -> **Configure Auto-Backup** -> **Configure Cloud Storage**.
-    *   Select **Start Rclone Config Wizard**.
-    *   Create a new remote named `gdrive`.
-    *   Select **Google Drive**.
-    *   Leave Client ID/Secret blank (hit Enter).
-    *   **Crucial Step:** When asked `Use auto config?`, answer **n (No)**.
-
-2.  **On Your Local Machine:**
-    *   Download Rclone for Windows: https://rclone.org/downloads/
-    *   Open PowerShell/CMD and run: `rclone authorize "drive"`
-    *   A browser window will open. Sign in to your Google Account.
-    *   Copy the long access token code provided in the terminal.
-
-3.  **Back on the Server:**
-    *   Paste the token code into the prompt.
-    *   Finish the setup (Team Drive: n, Keep: y).
-
-## Troubleshooting & Recovery
-
-**Q: What happens if I lose my SSH connection?**
-*   **Game Servers:** They are **safe**. They run in detached `screen` sessions or background services. They will continue running without interruption.
-*   **The Manager:** The manager interface will close.
-*   **To Recover:** Simply run `.\main.ps1` and select **Option 2 (Connect)**. You can then go to "Manage Servers" -> "View Console" to re-attach to any running game.
-
-**Q: My download/install was interrupted.**
-*   If a connection drop interrupts a download (e.g., in the "Install Game" menu), simply reconnect and run the install/update again. The scripts are designed to restart the process safely.
-
-## To-Do List
+## Roadmap
 
 - [x] Refactor into a pure Bash `manager.sh`.
 - [x] Implement generic `games/` plugin structure.
