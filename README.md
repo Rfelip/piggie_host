@@ -54,4 +54,4 @@ A generic, lightweight, and dependency-free utility for hosting game servers (Fa
 - [x] Add Minecraft and Terraria support.
 - [x] Implement Advanced Save Handling (Sync & Quick Backup).
 - [ ] Implement automated server-side backup scheduling (Cron).
-- [ ] Add "Auto-start on boot" systemd generator.
+- [x] Add "Auto-start on boot" systemd generator.

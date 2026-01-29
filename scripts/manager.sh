@@ -176,6 +176,7 @@ function manage_servers_menu() {
     echo "3) View Console (Attach)"
     echo "4) Edit Game System Configs (settings.sh)"
     echo "5) Edit Game Server Settings (e.g. server.properties)"
+    echo "6) Configure Auto-start (systemd)"
     echo "b) Back"
     
     read -p "Action: " action
@@ -235,6 +236,26 @@ function manage_servers_menu() {
                 echo -e "${RED}Error: $target_file not found.${NC}"
                 read -p "Press Enter..."
             fi
+            ;;
+        6)
+            local gen_script="$PROJECT_ROOT/scripts/setup/generate_service.sh"
+            chmod +x "$gen_script"
+            "$gen_script" "$instance"
+            
+            local service_name="game-$instance"
+            echo -e "\n${YELLOW}Systemd Service Options:${NC}"
+            echo "1) Enable (Start on boot)"
+            echo "2) Disable (Don't start on boot)"
+            echo "3) Start Now"
+            echo "4) Stop Now"
+            echo "b) Back"
+            read -p "Selection: " sys_opt
+            case $sys_opt in
+                1) sudo systemctl enable "$service_name" ;;
+                2) sudo systemctl disable "$service_name" ;;
+                3) sudo systemctl start "$service_name" ;;
+                4) sudo systemctl stop "$service_name" ;;
+            esac
             ;;
         *)
             ;;
