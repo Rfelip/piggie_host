@@ -54,5 +54,5 @@ A generic, lightweight, and dependency-free utility for hosting game servers on 
 
 ## To-Do List
 - [x] **Feature:** Handle Server Updates (Version checking/Force Reinstall).
-- [ ] **Feature:** Automated `box64` and `box86` installer for ARM.
+- [x] **Feature:** Automated `box64` and `box86` installer for ARM.
 - [ ] **Feature:** Add Valheim support.

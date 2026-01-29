@@ -48,6 +48,11 @@ function install_game_menu() {
     # List available game definitions
     local games=($(ls -d $GAMES_DIR/*/ | xargs -n 1 basename))
     
+    # Utility Options
+    echo "--- Utilities ---"
+    echo "u1) Install/Update Box64 (ARM Emulator)"
+    echo "-----------------"
+    
     if [ ${#games[@]} -eq 0 ]; then
         echo -e "${RED}No game definitions found in $GAMES_DIR${NC}"
         read -p "Press Enter..."
@@ -65,8 +70,17 @@ function install_game_menu() {
     done
     echo "b) Back"
 
-    read -p "Select a game to setup: " choice
+    read -p "Select a game to setup (or utility): " choice
     if [ "$choice" == "b" ]; then return; fi
+    
+    # Handle Utilities
+    if [ "$choice" == "u1" ]; then
+        local box_script="$PROJECT_ROOT/scripts/setup/install_box64.sh"
+        chmod +x "$box_script"
+        "$box_script"
+        read -p "Press Enter..."
+        return
+    fi
     
     local idx=$((choice-1))
     if [[ ! "$choice" =~ ^[0-9]+$ ]] || [ "$idx" -lt 0 ] || [ "$idx" -ge "${#games[@]}" ]; then
