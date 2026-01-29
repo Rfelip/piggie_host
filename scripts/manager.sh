@@ -174,12 +174,14 @@ function manage_servers_menu() {
     echo "1) Start Server"
     echo "2) Stop Server (Kill Screen)"
     echo "3) View Console (Attach)"
+    echo "4) Edit Instance Config (settings.sh)"
+    echo "5) Edit Game Settings (e.g. server.properties)"
     echo "b) Back"
     
     read -p "Action: " action
     case $action in
         1)
-            # Start Logic (Reused from old manager)
+            # ... existing start logic ...
             local start_script="$GAMES_DIR/$GAME/start.sh"
             local session_name="game-$instance"
             
@@ -214,6 +216,25 @@ function manage_servers_menu() {
         3)
             local session_name="game-$instance"
             screen -r "$session_name"
+            ;;
+        4)
+            local editor="vi"
+            if command -v nano &> /dev/null; then editor="nano"; fi
+            $editor "$instance_dir/settings.sh"
+            ;;
+        5)
+            # Source settings again to be sure
+            source "$instance_dir/settings.sh"
+            local editor="vi"
+            if command -v nano &> /dev/null; then editor="nano"; fi
+            
+            local target_file="$instance_dir/$SETTINGS_FILE"
+            if [ -f "$target_file" ]; then
+                $editor "$target_file"
+            else
+                echo -e "${RED}Error: $target_file not found.${NC}"
+                read -p "Press Enter..."
+            fi
             ;;
         *)
             ;;
