@@ -22,15 +22,39 @@ fi
 
 cd "$INSTALL_PATH" || exit 1
 
-# 1. Download
-echo "Downloading latest stable..."
-rm factorio_headless.tar.xz 2>/dev/null
-wget -O factorio_headless.tar.xz "$FACTORIO_URL"
+# 1. Download Logic
+TARGET_FILE="factorio_headless.tar.xz"
+rm "$TARGET_FILE" 2>/dev/null
 
-if [ $? -ne 0 ]; then
-    echo -e "${RED}Download failed.${NC}"
-    exit 1
-fi
+download_success=0
+CURRENT_URL="$FACTORIO_URL"
+
+while [ $download_success -eq 0 ]; do
+    echo "Downloading from: $CURRENT_URL"
+    wget -O "$TARGET_FILE" "$CURRENT_URL"
+    
+    if [ $? -eq 0 ]; then
+        download_success=1
+    else
+        echo -e "${RED}Download failed.${NC}"
+        echo -e "${YELLOW}Options:${NC}"
+        echo "1) Retry with custom URL"
+        echo "2) Cancel"
+        read -p "Select option: " retry_choice
+        
+        if [ "$retry_choice" == "1" ]; then
+            read -p "Enter new URL: " new_url
+            if [ -n "$new_url" ]; then
+                CURRENT_URL="$new_url"
+            else
+                echo "Invalid URL."
+            fi
+        else
+            echo "Update cancelled."
+            exit 1
+        fi
+    fi
+done
 
 # 2. Backup Binaries (Optional/Safety)
 # Moving bin to bin_old could be done, but tar overwrite is usually fine.

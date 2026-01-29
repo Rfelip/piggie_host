@@ -22,15 +22,37 @@ fi
 
 cd "$INSTALL_PATH" || exit 1
 
-# 1. Download
-echo "Downloading Terraria Server..."
+# 1. Download Logic
 rm "$ZIP_NAME" 2>/dev/null
-wget -O "$ZIP_NAME" "$DOWNLOAD_URL"
+download_success=0
+CURRENT_URL="$DOWNLOAD_URL"
 
-if [ $? -ne 0 ]; then
-    echo -e "${RED}Download failed.${NC}"
-    exit 1
-fi
+while [ $download_success -eq 0 ]; do
+    echo "Downloading from: $CURRENT_URL"
+    wget -O "$ZIP_NAME" "$CURRENT_URL"
+    
+    if [ $? -eq 0 ]; then
+        download_success=1
+    else
+        echo -e "${RED}Download failed.${NC}"
+        echo -e "${YELLOW}Options:${NC}"
+        echo "1) Retry with custom URL"
+        echo "2) Cancel"
+        read -p "Select option: " retry_choice
+        
+        if [ "$retry_choice" == "1" ]; then
+            read -p "Enter new URL: " new_url
+            if [ -n "$new_url" ]; then
+                CURRENT_URL="$new_url"
+            else
+                echo "Invalid URL."
+            fi
+        else
+            echo "Update cancelled."
+            exit 1
+        fi
+    fi
+done
 
 # 2. Extract
 echo "Extracting..."

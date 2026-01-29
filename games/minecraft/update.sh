@@ -29,14 +29,38 @@ if [ -f "server.jar" ]; then
     echo "Backed up old server.jar"
 fi
 
-# 2. Download
-echo "Downloading Minecraft Server (1.21.4)..."
-wget -O server.jar "$DOWNLOAD_URL"
+# 2. Download Logic
+TARGET_FILE="server.jar"
+download_success=0
+CURRENT_URL="$DOWNLOAD_URL"
 
-if [ $? -eq 0 ]; then
-    echo -e "${GREEN}Update successful.${NC}"
-else
-    echo -e "${RED}Download failed. Restoring backup...${NC}"
-    mv server.jar.bak.* server.jar
-    exit 1
-fi
+while [ $download_success -eq 0 ]; do
+    echo "Downloading from: $CURRENT_URL"
+    wget -O "$TARGET_FILE" "$CURRENT_URL"
+    
+    if [ $? -eq 0 ]; then
+        download_success=1
+        echo -e "${GREEN}Update successful.${NC}"
+    else
+        echo -e "${RED}Download failed.${NC}"
+        echo -e "${YELLOW}Options:${NC}"
+        echo "1) Retry with custom URL"
+        echo "2) Cancel (Restore Backup)"
+        read -p "Select option: " retry_choice
+        
+        if [ "$retry_choice" == "1" ]; then
+            read -p "Enter new URL: " new_url
+            if [ -n "$new_url" ]; then
+                CURRENT_URL="$new_url"
+            else
+                echo "Invalid URL."
+            fi
+        else
+            echo "Update cancelled. Restoring backup..."
+            if ls server.jar.bak.* 1> /dev/null 2>&1; then
+                mv server.jar.bak.* server.jar
+            fi
+            exit 1
+        fi
+    fi
+done
