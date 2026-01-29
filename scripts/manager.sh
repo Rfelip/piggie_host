@@ -72,15 +72,20 @@ if [ ! -d "$INSTALL_PATH" ]; then
     fi
 fi
 
-# 5. Start server in screen
+# 5. Start server in screen or tmux
 SESSION_NAME="game-$SELECTED_INSTANCE"
 
-if screen -list | grep -q "\.${SESSION_NAME}\s"; then
-    echo -e "${RED}Error: Screen session '$SESSION_NAME' is already running.${NC}"
+# Detect Multiplexer
+if command -v screen &> /dev/null; then
+    MULTIPLEXER="screen"
+elif command -v tmux &> /dev/null; then
+    MULTIPLEXER="tmux"
+else
+    echo -e "${RED}Error: Neither 'screen' nor 'tmux' found. Please run setup scripts.${NC}"
     exit 1
 fi
 
-echo -e "${GREEN}Starting $SELECTED_INSTANCE...${NC}"
+echo -e "${GREEN}Starting $SELECTED_INSTANCE using $MULTIPLEXER...${NC}"
 chmod +x "$START_SCRIPT"
 
 # Resolve absolute paths for the game scripts
@@ -88,11 +93,34 @@ ABS_INSTANCE_DIR=$(realpath "$INSTANCE_DIR")
 ABS_SAVE_FILE="${ABS_INSTANCE_DIR}/${SAVE_FILE}"
 ABS_SETTINGS_FILE="${ABS_INSTANCE_DIR}/${SETTINGS_FILE}"
 
-screen -dmS "$SESSION_NAME" bash -c "'$START_SCRIPT' '$INSTALL_PATH' '$ABS_SAVE_FILE' '$ABS_SETTINGS_FILE' || { echo 'Server exited with error'; read -p 'Press Enter...'; }"
+if [ "$MULTIPLEXER" == "screen" ]; then
+    if screen -list | grep -q "\.${SESSION_NAME}\s"; then
+        echo -e "${RED}Error: Screen session '$SESSION_NAME' is already running.${NC}"
+        exit 1
+    fi
+    # Screen Start
+    screen -dmS "$SESSION_NAME" bash -c "'$START_SCRIPT' '$INSTALL_PATH' '$ABS_SAVE_FILE' '$ABS_SETTINGS_FILE' || { echo 'Server exited with error'; read -p 'Press Enter...'; }"
+    
+    if [ $? -eq 0 ]; then
+        echo -e "${GREEN}Server started in screen session '$SESSION_NAME'.${NC}"
+        echo "Attach with: screen -r $SESSION_NAME"
+    else
+        echo -e "${RED}Failed to start screen session.${NC}"
+    fi
 
-if [ $? -eq 0 ]; then
-    echo -e "${GREEN}Server started in screen session '$SESSION_NAME'.${NC}"
-    echo "Attach with: screen -r $SESSION_NAME"
-else
-    echo -e "${RED}Failed to start screen session.${NC}"
+elif [ "$MULTIPLEXER" == "tmux" ]; then
+    if tmux has-session -t "$SESSION_NAME" 2>/dev/null; then
+        echo -e "${RED}Error: Tmux session '$SESSION_NAME' is already running.${NC}"
+        exit 1
+    fi
+    # Tmux Start
+    # Create new session detached, running the command
+    tmux new-session -d -s "$SESSION_NAME" "'$START_SCRIPT' '$INSTALL_PATH' '$ABS_SAVE_FILE' '$ABS_SETTINGS_FILE' || { echo 'Server exited with error'; read -p 'Press Enter...'; }"
+    
+    if [ $? -eq 0 ]; then
+        echo -e "${GREEN}Server started in tmux session '$SESSION_NAME'.${NC}"
+        echo "Attach with: tmux attach -t $SESSION_NAME"
+    else
+        echo -e "${RED}Failed to start tmux session.${NC}"
+    fi
 fi
