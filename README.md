@@ -40,4 +40,5 @@ A generic, lightweight, and dependency-free utility for hosting game servers (Fa
 
 *   **[Setting up Google Drive Backups](docs/setup_google_drive.md):** How to configure cloud backups using "Headless Auth".
 *   **[Adding New Games](docs/adding_games.md):** Guide to creating plugins for new games (Valheim, CS:GO, etc.).
+*   **[Oracle Cloud Guide](docs/oracle_cloud.md):** Important networking setup for Oracle Ampere VPS users.
 *   **[Troubleshooting & Recovery](docs/troubleshooting.md):** Common issues, recovery from disconnects, and performance tuning.
