@@ -174,8 +174,8 @@ function manage_servers_menu() {
     echo "1) Start Server"
     echo "2) Stop Server (Kill Screen)"
     echo "3) View Console (Attach)"
-    echo "4) Edit Instance Config (settings.sh)"
-    echo "5) Edit Game Settings (e.g. server.properties)"
+    echo "4) Edit Game System Configs (settings.sh)"
+    echo "5) Edit Game Server Settings (e.g. server.properties)"
     echo "b) Back"
     
     read -p "Action: " action
