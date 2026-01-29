@@ -27,8 +27,8 @@ if [ -n "$PKG_MGR" ]; then
     echo "Updating package lists..."
     $UPDATE_CMD
     
-    echo "Installing core tools (wget, tar, xz, git, nano, zip, cron)..."
-    $INSTALL_CMD wget tar xz-utils git nano zip cron
+    echo "Installing core tools (wget, tar, xz, git, nano, zip, unzip, cron)..."
+    $INSTALL_CMD wget tar xz-utils git nano zip unzip cron
     
     echo "Attempting to install 'screen'..."
     $INSTALL_CMD screen

@@ -148,13 +148,13 @@ $RemoteScript = "
     find scripts -name '*.sh' -type f -exec sed -i 's/\r$//' {} +
     chmod +x scripts/manager.sh scripts/setup/*.sh games/*/*.sh
     
-    echo '--- Running Resource Check ---
+    echo '--- Running Resource Check ---'
     ./scripts/setup/check_resources.sh
     
-    echo '--- Running Dependency Install ---
+    echo '--- Running Dependency Install ---'
     ./scripts/setup/install_deps.sh
     
-    echo '--- Setup Complete ---
+    echo '--- Setup Complete ---'
     echo 'You can now run ./scripts/manager.sh on the server.'
 "
 
