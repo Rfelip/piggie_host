@@ -64,7 +64,28 @@ else
     exit 1
 fi
 
-# Retention Policy: Delete old backups
+# --- Cloud Backup (Rclone) ---
+if command -v rclone &> /dev/null; then
+    # Check if 'gdrive' remote exists
+    if rclone listremotes | grep -q "^gdrive:"; then
+        echo "Uploading to Google Drive (gdrive:game_backups/$INSTANCE_NAME)..."
+        
+        # Upload
+        rclone copy "$BACKUP_DIR/$BACKUP_NAME" "gdrive:game_backups/$INSTANCE_NAME"
+        
+        if [ $? -eq 0 ]; then
+            echo -e "${GREEN}Cloud upload successful.${NC}"
+            
+            # Cloud Retention: Keep only last 3 days
+            echo "Cleaning up cloud backups older than 3 days..."
+            rclone delete "gdrive:game_backups/$INSTANCE_NAME" --min-age 3d
+        else
+            echo -e "${RED}Cloud upload failed.${NC}"
+        fi
+    fi
+fi
+
+# Retention Policy: Delete old local backups
 echo "Cleaning up backups older than $RETENTION_DAYS days..."
 find "$BACKUP_DIR" -name "*_${FILENAME}_*.zip" -type f -mtime +$RETENTION_DAYS -delete
 # Note: The pattern matches our naming convention to avoid deleting wrong files

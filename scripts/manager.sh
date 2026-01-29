@@ -340,6 +340,7 @@ function manage_servers_menu() {
                 echo "1) Enable Auto-Backup"
             fi
             echo "2) Run Backup Now (Manual)"
+            echo "3) Configure Cloud Storage (Google Drive)"
             echo "b) Back"
             
             read -p "Selection: " bk_opt
@@ -373,6 +374,26 @@ function manage_servers_menu() {
             elif [ "$bk_opt" == "2" ]; then
                 "$backup_script" "$instance"
                 read -p "Press Enter..."
+            elif [ "$bk_opt" == "3" ]; then
+                echo -e "${YELLOW}Cloud Backup Configuration (Rclone)${NC}"
+                echo "You need to configure a remote named 'gdrive'."
+                echo "1) Start Rclone Config Wizard"
+                echo "2) Check Connection"
+                echo "b) Back"
+                read -p "Option: " cloud_opt
+                
+                if [ "$cloud_opt" == "1" ]; then
+                    rclone config
+                elif [ "$cloud_opt" == "2" ]; then
+                    echo "Checking 'gdrive'..."
+                    if rclone listremotes | grep -q "^gdrive:"; then
+                        echo -e "${GREEN}Remote 'gdrive' found.${NC}"
+                        rclone about gdrive:
+                    else
+                        echo -e "${RED}Remote 'gdrive' not configured.${NC}"
+                    fi
+                    read -p "Press Enter..."
+                fi
             fi
             ;;
         *)

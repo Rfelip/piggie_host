@@ -33,10 +33,10 @@ if [ -n "$PKG_MGR" ]; then
     
     echo "Installing core tools..."
     if [ "$PKG_MGR" == "pacman" ]; then
-        $INSTALL_CMD wget tar xz git nano zip unzip cronie
+        $INSTALL_CMD wget tar xz git nano zip unzip cronie rclone
         sudo systemctl enable --now cronie
     else
-        $INSTALL_CMD wget tar xz-utils git nano zip unzip cron
+        $INSTALL_CMD wget tar xz-utils git nano zip unzip cron rclone
     fi
     
     echo "Attempting to install 'screen'..."
