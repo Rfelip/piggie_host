@@ -58,23 +58,57 @@ if ($UsePutty) {
     ssh @SSHArgs
 }
 
-# 4. Upload Scripts
-Write-Host "Uploading scripts..." -ForegroundColor Gray
-# We upload the entire 'scripts', 'games', and 'configs' folders
-# Exclude env (secrets) and .git
+# 4. Upload Scripts (Safe Deployment)
+Write-Host "Preparing deployment package..." -ForegroundColor Gray
+
+# Create a temporary staging directory
+$TmpDeploy = Join-Path $ProjectRoot "deploy_tmp"
+if (Test-Path $TmpDeploy) { Remove-Item -Recurse -Force $TmpDeploy }
+New-Item -ItemType Directory -Path $TmpDeploy | Out-Null
+
+# Copy Scripts and Games (Safe to overwrite)
+Copy-Item -Recurse -Path (Join-Path $ProjectRoot "scripts") -Destination $TmpDeploy
+Copy-Item -Recurse -Path (Join-Path $ProjectRoot "games") -Destination $TmpDeploy
+
+# Copy Configs but EXCLUDE saves and zip files
+$ConfigSrc = Join-Path $ProjectRoot "configs"
+$ConfigDst = Join-Path $TmpDeploy "configs"
+New-Item -ItemType Directory -Path $ConfigDst | Out-Null
+
+if (Test-Path $ConfigSrc) {
+    Get-ChildItem -Path $ConfigSrc -Directory | ForEach-Object {
+        $InstanceName = $_.Name
+        $SrcInst = $_.FullName
+        $DstInst = Join-Path $ConfigDst $InstanceName
+        New-Item -ItemType Directory -Path $DstInst | Out-Null
+        
+        # Copy everything EXCEPT 'saves' and '*.zip'
+        Get-ChildItem -Path $SrcInst | Where-Object { $_.Name -ne "saves" -and $_.Extension -ne ".zip" } | ForEach-Object {
+            Copy-Item -Recurse -Path $_.FullName -Destination $DstInst
+        }
+    }
+}
+
+Write-Host "Uploading files..." -ForegroundColor Gray
 
 if ($UsePutty) {
-    # pscp -r -i key source dest
-    pscp.exe -r -i "$KeyPath" "$ProjectRoot\scripts" "$ServerUser@$ServerIP`:$RemoteDir/"
-    pscp.exe -r -i "$KeyPath" "$ProjectRoot\games" "$ServerUser@$ServerIP`:$RemoteDir/"
-    # Configs might be large if they have saves, but we need settings.
-    # For now, upload configs too.
-    pscp.exe -r -i "$KeyPath" "$ProjectRoot\configs" "$ServerUser@$ServerIP`:$RemoteDir/"
+    # Upload the contents of deploy_tmp to remote
+    # pscp doesn't support "content of folder", so we upload the subfolders
+    Get-ChildItem -Path $TmpDeploy | ForEach-Object {
+        pscp.exe -r -i "$KeyPath" "$($_.FullName)" "$ServerUser@$ServerIP`:$RemoteDir/"
+    }
 } else {
-    $SCPArgs = @("-r", "$ProjectRoot/scripts", "$ProjectRoot/games", "$ProjectRoot/configs", "$ServerUser@$ServerIP`:$RemoteDir/")
+    # scp recursive
+    # We upload the contents of deploy_tmp/*
+    $Files = Get-ChildItem -Path $TmpDeploy | Select-Object -ExpandProperty FullName
+    $SCPArgs = @("-r") + $Files + @("$ServerUser@$ServerIP`:$RemoteDir/")
     if ($KeyPath) { $SCPArgs = @("-i", "$KeyPath") + $SCPArgs }
     scp @SCPArgs
 }
+
+# Cleanup
+Remove-Item -Recurse -Force $TmpDeploy
+Write-Host "Upload complete." -ForegroundColor Gray
 
 # 5. Execute Setup
 Write-Host "Executing remote setup..." -ForegroundColor Cyan
