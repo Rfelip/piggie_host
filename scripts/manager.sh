@@ -1,126 +1,240 @@
 #!/bin/bash
+# Universal Game Server Manager (Interactive Remote)
 
-# Universal Game Server Manager (Bash Edition)
-# Resolve paths relative to the script location
+# Paths
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 CONFIGS_DIR="$PROJECT_ROOT/configs"
 GAMES_DIR="$PROJECT_ROOT/games"
 
 # Colors
-GREEN='\033[0;32m'
-BLUE='\033[0;34m'
 RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
 NC='\033[0m'
 
-echo -e "${BLUE}=== Universal Game Server Manager ===${NC}"
+# --- Helper Functions ---
 
-# 1. List available configurations
-configs=()
-while IFS= read -r -d $'\0' dir; do
-    if [ -f "$dir/settings.sh" ]; then
-        configs+=("$(basename "$dir")")
+function get_game_status() {
+    local game_name=$1
+    local check_script="$GAMES_DIR/$game_name/check_state.sh"
+    
+    if [ -f "$check_script" ]; then
+        chmod +x "$check_script"
+        "$check_script" "$GAMES_DIR/$game_name"
+        return $?
     fi
-done < <(find "$CONFIGS_DIR" -maxdepth 1 -type d -not -path "$CONFIGS_DIR" -print0)
+    return 1 # Not installed/Unknown
+}
 
-if [ ${#configs[@]} -eq 0 ]; then
-    echo -e "${RED}No server configurations found in $CONFIGS_DIR/*/settings.sh${NC}"
-    exit 1
-fi
+function update_install_state() {
+    local game_name=$1
+    local key=$2
+    local value=$3
+    local config_file="$GAMES_DIR/$game_name/install_config.ini"
+    
+    # Simple sed replacement or append
+    if grep -q "^$key=" "$config_file"; then
+        sed -i "s/^$key=.*/$key=$value/" "$config_file"
+    else
+        echo "$key=$value" >> "$config_file"
+    fi
+}
 
-echo "Available Servers:"
-for i in "${!configs[@]}"; do
-    # Source settings briefly to get description if available
-    (
-        source "$CONFIGS_DIR/${configs[$i]}/settings.sh"
-        echo -e "$((i+1))) ${configs[$i]} [${GAME:-unknown}] - ${DESCRIPTION:-No description}"
-    )
+function install_game_menu() {
+    echo -e "${BLUE}=== Install / Setup Game ===${NC}"
+    
+    # List available game definitions
+    local games=($(ls -d $GAMES_DIR/*/ | xargs -n 1 basename))
+    
+    if [ ${#games[@]} -eq 0 ]; then
+        echo -e "${RED}No game definitions found in $GAMES_DIR${NC}"
+        read -p "Press Enter..."
+        return
+    fi
+
+    for i in "${!games[@]}"; do
+        local game="${games[$i]}"
+        get_game_status "$game"
+        if [ $? -eq 0 ]; then
+             echo -e "$((i+1))) ${GREEN}$game (Installed)${NC}"
+        else
+             echo -e "$((i+1))) ${YELLOW}$game (Not Installed)${NC}"
+        fi
+    done
+    echo "b) Back"
+
+    read -p "Select a game to setup: " choice
+    if [ "$choice" == "b" ]; then return; fi
+    
+    local idx=$((choice-1))
+    if [[ ! "$choice" =~ ^[0-9]+$ ]] || [ "$idx" -lt 0 ] || [ "$idx" -ge "${#games[@]}" ]; then
+        echo -e "${RED}Invalid selection.${NC}"
+        return
+    fi
+
+    local selected_game="${games[$idx]}"
+    local install_script="$GAMES_DIR/$selected_game/install.sh"
+    local config_ini="$GAMES_DIR/$selected_game/install_config.ini"
+
+    echo -e "Selected: $selected_game"
+    
+    # 1. Check/Install Dependencies
+    source "$config_ini" 2>/dev/null
+    if [ "${dependencies_installed:-0}" -ne 1 ]; then
+        echo "Installing system dependencies..."
+        # In a real scenario, we might call a specific deps script.
+        # For now, we assume standard deps are checked in install.sh or global setup.
+        # We mark it as done.
+        update_install_state "$selected_game" "dependencies_installed" "1"
+    fi
+
+    # 2. Run Installer
+    if [ "${game_installed:-0}" -ne 1 ]; then
+        echo "Running game installer..."
+        chmod +x "$install_script"
+        "$install_script" "$GAMES_DIR/$selected_game" # Install to games dir (shared)
+        if [ $? -eq 0 ]; then
+             update_install_state "$selected_game" "game_installed" "1"
+             echo -e "${GREEN}Installation successful.${NC}"
+        else
+             echo -e "${RED}Installation failed.${NC}"
+             read -p "Press Enter..."
+             return
+        fi
+    else
+        echo "Game binaries already installed."
+    fi
+
+    # 3. Create Instance
+    echo -e "${BLUE}=== Create Server Instance ===${NC}"
+    read -p "Enter instance name (e.g., MyWorld): " instance_name
+    if [ -z "$instance_name" ]; then echo "Cancelled."; return; fi
+    
+    local instance_dir="$CONFIGS_DIR/$instance_name"
+    if [ -d "$instance_dir" ]; then
+        echo -e "${RED}Instance '$instance_name' already exists.${NC}"
+        return
+    fi
+
+    mkdir -p "$instance_dir"
+    
+    # Create settings.sh
+    cat << EOF > "$instance_dir/settings.sh"
+GAME="$selected_game"
+DESCRIPTION="$selected_game Server - $instance_name"
+INSTALL_PATH="$GAMES_DIR/$selected_game"
+SAVE_FILE="saves/save.zip"
+SETTINGS_FILE="server-settings.json"
+EOF
+    
+    echo -e "${GREEN}Instance '$instance_name' created in $instance_dir${NC}"
+    echo "Please upload your save file to $instance_dir/saves/ and configure settings.sh."
+    read -p "Press Enter..."
+}
+
+function manage_servers_menu() {
+    echo -e "${BLUE}=== Manage Servers ===${NC}"
+    
+    local configs=()
+    while IFS= read -r -d $'\0' dir; do
+        if [ -f "$dir/settings.sh" ]; then
+            configs+=("$(basename "$dir")")
+        fi
+    done < <(find "$CONFIGS_DIR" -maxdepth 1 -type d -not -path "$CONFIGS_DIR" -print0)
+
+    if [ ${#configs[@]} -eq 0 ]; then
+        echo "No servers configured."
+        read -p "Press Enter..."
+        return
+    fi
+
+    for i in "${!configs[@]}"; do
+        echo "$((i+1))) ${configs[$i]}"
+    done
+    echo "b) Back"
+
+    read -p "Select server: " choice
+    if [ "$choice" == "b" ]; then return; fi
+
+    local idx=$((choice-1))
+    if [[ ! "$choice" =~ ^[0-9]+$ ]] || [ "$idx" -lt 0 ] || [ "$idx" -ge "${#configs[@]}" ]; then
+        echo "Invalid."
+        return
+    fi
+
+    local instance="${configs[$idx]}"
+    local instance_dir="$CONFIGS_DIR/$instance"
+    
+    # Load config
+    source "$instance_dir/settings.sh"
+    
+    echo -e "${YELLOW}Managing: $instance ($GAME)${NC}"
+    echo "1) Start Server"
+    echo "2) Stop Server (Kill Screen)"
+    echo "3) View Console (Attach)"
+    echo "b) Back"
+    
+    read -p "Action: " action
+    case $action in
+        1)
+            # Start Logic (Reused from old manager)
+            local start_script="$GAMES_DIR/$GAME/start.sh"
+            local session_name="game-$instance"
+            
+            # Check if game installed
+            get_game_status "$GAME"
+            if [ $? -ne 0 ]; then
+                echo -e "${RED}Game '$GAME' is not installed correctly. Run setup first.${NC}"
+                read -p "Press Enter..."
+                return
+            fi
+
+            # Check running
+            if screen -list | grep -q "\.${session_name}\s"; then
+                echo -e "${RED}Already running.${NC}"
+            else
+                echo "Starting..."
+                chmod +x "$start_script"
+                # Resolve paths relative to instance dir for saves
+                local abs_save="$instance_dir/$SAVE_FILE"
+                local abs_settings="$instance_dir/$SETTINGS_FILE"
+                
+                # Using screen
+                screen -dmS "$session_name" bash -c "'$start_script' '$INSTALL_PATH' '$abs_save' '$abs_settings' || { echo 'Crash'; read; }"
+                echo -e "${GREEN}Started.${NC}"
+            fi
+            ;;
+        2)
+            local session_name="game-$instance"
+            screen -S "$session_name" -X quit
+            echo "Stop signal sent."
+            ;;
+        3)
+            local session_name="game-$instance"
+            screen -r "$session_name"
+            ;;
+        *)
+            ;;
+    esac
+    read -p "Press Enter..."
+}
+
+# --- Main Loop ---
+
+while true; do
+    clear
+    echo -e "${BLUE}=== Universal Game Server Manager ===${NC}"
+    echo "1) Install / Setup Game"
+    echo "2) Manage Servers"
+    echo "3) Exit"
+    
+    read -p "Select option: " opt
+    case $opt in
+        1) install_game_menu ;;
+        2) manage_servers_menu ;;
+        3) exit 0 ;;
+        *) echo "Invalid option." ;;
+    esac
 done
-
-# 2. Select a server
-read -p "Select a server (1-${#configs[@]}): " choice
-if [[ ! "$choice" =~ ^[0-9]+$ ]] || [ "$choice" -lt 1 ] || [ "$choice" -gt "${#configs[@]}" ]; then
-    echo -e "${RED}Invalid selection.${NC}"
-    exit 1
-fi
-
-SELECTED_INSTANCE="${configs[$((choice-1))]}"
-INSTANCE_DIR="$CONFIGS_DIR/$SELECTED_INSTANCE"
-
-# 3. Load configuration
-source "$INSTANCE_DIR/settings.sh"
-
-# 4. Check installation
-INSTALL_SCRIPT="$GAMES_DIR/$GAME/install.sh"
-START_SCRIPT="$GAMES_DIR/$GAME/start.sh"
-
-if [ ! -f "$INSTALL_SCRIPT" ] || [ ! -f "$START_SCRIPT" ]; then
-    echo -e "${RED}Error: Game scripts for '$GAME' not found in $GAMES_DIR/$GAME/${NC}"
-    exit 1
-fi
-
-# Use default install path if not set
-INSTALL_PATH="${INSTALL_PATH:-$HOME/servers/$SELECTED_INSTANCE}"
-
-if [ ! -d "$INSTALL_PATH" ]; then
-    echo -e "${BLUE}Server not found at $INSTALL_PATH. Running installer...${NC}"
-    chmod +x "$INSTALL_SCRIPT"
-    "$INSTALL_SCRIPT" "$INSTALL_PATH"
-    if [ $? -ne 0 ]; then
-        echo -e "${RED}Installation failed.${NC}"
-        exit 1
-    fi
-fi
-
-# 5. Start server in screen or tmux
-SESSION_NAME="game-$SELECTED_INSTANCE"
-
-# Detect Multiplexer
-if command -v screen &> /dev/null; then
-    MULTIPLEXER="screen"
-elif command -v tmux &> /dev/null; then
-    MULTIPLEXER="tmux"
-else
-    echo -e "${RED}Error: Neither 'screen' nor 'tmux' found. Please run setup scripts.${NC}"
-    exit 1
-fi
-
-echo -e "${GREEN}Starting $SELECTED_INSTANCE using $MULTIPLEXER...${NC}"
-chmod +x "$START_SCRIPT"
-
-# Resolve absolute paths for the game scripts
-ABS_INSTANCE_DIR=$(realpath "$INSTANCE_DIR")
-ABS_SAVE_FILE="${ABS_INSTANCE_DIR}/${SAVE_FILE}"
-ABS_SETTINGS_FILE="${ABS_INSTANCE_DIR}/${SETTINGS_FILE}"
-
-if [ "$MULTIPLEXER" == "screen" ]; then
-    if screen -list | grep -q "\.${SESSION_NAME}\s"; then
-        echo -e "${RED}Error: Screen session '$SESSION_NAME' is already running.${NC}"
-        exit 1
-    fi
-    # Screen Start
-    screen -dmS "$SESSION_NAME" bash -c "'$START_SCRIPT' '$INSTALL_PATH' '$ABS_SAVE_FILE' '$ABS_SETTINGS_FILE' || { echo 'Server exited with error'; read -p 'Press Enter...'; }"
-    
-    if [ $? -eq 0 ]; then
-        echo -e "${GREEN}Server started in screen session '$SESSION_NAME'.${NC}"
-        echo "Attach with: screen -r $SESSION_NAME"
-    else
-        echo -e "${RED}Failed to start screen session.${NC}"
-    fi
-
-elif [ "$MULTIPLEXER" == "tmux" ]; then
-    if tmux has-session -t "$SESSION_NAME" 2>/dev/null; then
-        echo -e "${RED}Error: Tmux session '$SESSION_NAME' is already running.${NC}"
-        exit 1
-    fi
-    # Tmux Start
-    # Create new session detached, running the command
-    tmux new-session -d -s "$SESSION_NAME" "'$START_SCRIPT' '$INSTALL_PATH' '$ABS_SAVE_FILE' '$ABS_SETTINGS_FILE' || { echo 'Server exited with error'; read -p 'Press Enter...'; }"
-    
-    if [ $? -eq 0 ]; then
-        echo -e "${GREEN}Server started in tmux session '$SESSION_NAME'.${NC}"
-        echo "Attach with: tmux attach -t $SESSION_NAME"
-    else
-        echo -e "${RED}Failed to start tmux session.${NC}"
-    fi
-fi

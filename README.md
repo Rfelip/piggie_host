@@ -27,36 +27,80 @@ A generic, lightweight, and dependency-free Bash utility for hosting game server
 
 ## Usage
 
-1.  **Configure:**
-    *   Edit `env/.env` with your server details.
 
-2.  **Deploy & Setup:**
-    *   Run the deployment script from your local machine:
+
+1.  **Start the Master Script:**
+
+    *   Run the main script from your local machine. This orchestrates the entire process: deployment, setup, and remote management.
+
         ```powershell
-        .\scripts\deploy.ps1
-        ```
-    *   This will upload the manager, check remote resources, and install dependencies.
 
-3.  **Manage Servers:**
-    *   Connect to the server:
-        ```powershell
-        .\scripts\connect.ps1
-        ```
-    *   Run the manager:
-        ```bash
-        ./manager.sh
+        .\main.ps1
+
         ```
 
-## FAQ
+    *   It will connects to the server, update the environment, and then launch the **Interactive Manager**.
 
-**Q: Why not Docker?**
-A: Docker introduces memory overhead and file system complexity. On basic/low-end Linux servers (e.g., 1 vCPU, 1GB RAM), every megabyte counts. Running the servers directly allows the OS to manage resources more efficiently and avoids the "layer" penalty of containerization.
+
+
+2.  **Interactive Manager (Remote):**
+
+    *   **Install Games:** Select a game to install. Completed steps (deps, download) are tracked.
+
+    *   **Run Servers:** Start/Stop configured server instances.
+
+    *   **Auto-Start:** (Planned) Configure servers to start on boot.
+
+
+
+## Project Structure
+
+
+
+*   `main.ps1`: **(Main Entry)** Local script that runs deploy and then connects to the manager.
+
+*   `scripts/`: Executable utilities.
+
+    *   `deploy.ps1`: Uploads scripts and runs setup on the remote host.
+
+    *   `manager.sh`: The interactive remote menu system.
+
+*   `games/`: Game definitions and installers.
+
+    *   `factorio/`:
+
+        *   `install.sh`: Installation logic.
+
+        *   `start.sh`: Startup logic.
+
+        *   `install_config.ini`: Tracks installation state (deps, engine, etc.).
+
+*   `configs/`: Server instances (e.g., `TBR2026`).
+
+
 
 ## To-Do List
 
+
+
 - [x] Refactor into a pure Bash `manager.sh`.
+
 - [x] Implement generic `games/` plugin structure.
+
 - [x] Create modular setup scripts (Resource check, Deps).
+
 - [x] Create deployment orchestrator (`deploy.ps1`).
+
+- [ ] **Create Root `main.ps1`** to unify deploy and execution.
+
+- [ ] **Refactor `manager.sh`:**
+
+    - [ ] Add Main Menu (Install, Run, Config).
+
+    - [ ] Implement state tracking (Green/Red status).
+
+    - [ ] Add `install_config` parsing.
+
 - [ ] Add Minecraft/Terraria support.
+
 - [ ] Implement automated backup functionality.

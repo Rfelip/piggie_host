@@ -1,5 +1,8 @@
 # Connect to Server Script
 # Reads configuration from env/.env and establishes an SSH connection.
+param (
+    [string]$RemoteCommand = ""
+)
 
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $ProjectRoot = Split-Path -Parent $ScriptDir
@@ -26,11 +29,12 @@ if (-not $SERVER_IP) {
 
 $User = if ($SERVER_USER) { $SERVER_USER } else { "root" }
 $Key = if ($SSH_KEY_PATH) { $SSH_KEY_PATH } else { "" }
+$UsePutty = ($Key -and $Key.EndsWith(".ppk"))
 
 Write-Host "Connecting to $User@$SERVER_IP..." -ForegroundColor Cyan
 
 # Check for OpenSSH Key format if using native ssh
-if ($Key -and $Key.EndsWith(".ppk")) {
+if ($UsePutty) {
     Write-Host "Warning: Native SSH does not support .ppk files directly." -ForegroundColor Yellow
     Write-Host "Please convert '$Key' to OpenSSH format (e.g., id_rsa) using PuTTYgen:" -ForegroundColor Yellow
     Write-Host "  1. Load .ppk in PuTTYgen" -ForegroundColor Gray
@@ -56,6 +60,23 @@ $SSHArgs = @("$User@$SERVER_IP")
 if ($Key -and -not $Key.EndsWith(".ppk")) {
     $SSHArgs += "-i"
     $SSHArgs += "$Key"
+}
+
+if ($RemoteCommand) {
+    if ($UsePutty) {
+        # Plink expects command as the last argument
+        plink.exe -ssh -i "$Key" "$User@$SERVER_IP" -t "$RemoteCommand"
+        exit
+    } else {
+        $SSHArgs += "-t" # Force pseudo-terminal for interactive menus
+        $SSHArgs += "$RemoteCommand"
+    }
+} else {
+     # Interactive shell fallback for Plink
+     if ($UsePutty) {
+        plink.exe -ssh -i "$Key" "$User@$SERVER_IP"
+        exit
+     }
 }
 
 ssh @SSHArgs
