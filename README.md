@@ -63,7 +63,7 @@ A generic, lightweight, and dependency-free utility for hosting game servers (Fa
 - [x] Create deployment orchestrator (`deploy.ps1`).
 - [x] Add Minecraft and Terraria support.
 - [x] Implement Advanced Save Handling (Sync & Quick Backup).
-- [ ] Implement automated server-side backup scheduling (Cron).
+- [x] Implement automated server-side backup scheduling (Cron).
 - [x] Add "Auto-start on boot" systemd generator.
 - [x] **Improvement:** Optimize deployment (Don't overwrite `configs/` or `saves/` blindly).
 - [x] **Feature:** Handle Server Updates (Version checking/Force Reinstall).

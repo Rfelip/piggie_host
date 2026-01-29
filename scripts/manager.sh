@@ -203,6 +203,7 @@ function manage_servers_menu() {
     echo "4) Edit Game System Configs (settings.sh)"
     echo "5) Edit Game Server Settings (e.g. server.properties)"
     echo "6) Configure Auto-start (systemd)"
+    echo "7) Configure Auto-Backup (Cron)"
     echo "b) Back"
     
     read -p "Action: " action
@@ -321,6 +322,58 @@ function manage_servers_menu() {
                 4) sudo systemctl start "$service_name"; read -p "Signal sent. Press Enter..." ;;
                 5) sudo systemctl stop "$service_name"; read -p "Signal sent. Press Enter..." ;;
             esac
+            ;;
+        7)
+            local backup_script="$PROJECT_ROOT/scripts/backup.sh"
+            chmod +x "$backup_script"
+            
+            # Check existing cron job
+            local current_cron=$(crontab -l 2>/dev/null | grep "$backup_script $instance")
+            
+            echo -e "\n${YELLOW}Auto-Backup Configuration${NC}"
+            if [ -n "$current_cron" ]; then
+                echo -e "Status: ${GREEN}Active${NC}"
+                echo "Current Schedule: $current_cron"
+                echo "1) Remove Auto-Backup"
+            else
+                echo -e "Status: ${RED}Disabled${NC}"
+                echo "1) Enable Auto-Backup"
+            fi
+            echo "2) Run Backup Now (Manual)"
+            echo "b) Back"
+            
+            read -p "Selection: " bk_opt
+            if [ "$bk_opt" == "1" ]; then
+                if [ -n "$current_cron" ]; then
+                    # Remove
+                    crontab -l 2>/dev/null | grep -v "$backup_script $instance" | crontab -
+                    echo "Auto-Backup disabled."
+                else
+                    # Add
+                    echo "Select Frequency:"
+                    echo "1) Every Hour (0 * * * *)"
+                    echo "2) Every 6 Hours (0 */6 * * *)"
+                    echo "3) Daily (0 0 * * *)"
+                    echo "4) Custom"
+                    read -p "Freq: " freq
+                    local schedule=""
+                    case $freq in
+                        1) schedule="0 * * * *" ;;
+                        2) schedule="0 */6 * * *" ;;
+                        3) schedule="0 0 * * *" ;;
+                        4) read -p "Enter Cron Expression (e.g. '0 12 * * *'): " schedule ;;
+                    esac
+                    
+                    if [ -n "$schedule" ]; then
+                        (crontab -l 2>/dev/null; echo "$schedule $backup_script $instance") | crontab -
+                        echo "Auto-Backup enabled: $schedule"
+                    fi
+                fi
+                read -p "Press Enter..."
+            elif [ "$bk_opt" == "2" ]; then
+                "$backup_script" "$instance"
+                read -p "Press Enter..."
+            fi
             ;;
         *)
             ;;
