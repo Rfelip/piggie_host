@@ -45,6 +45,28 @@ A generic, lightweight, and dependency-free utility for hosting game servers (Fa
     *   Use **"Install Game"** to download binaries (Installed games appear in **Green**).
     *   Use **"Manage Servers"** to Start, Stop, or Edit settings.
 
+## Setting up Cloud Backups (Google Drive)
+
+Since your server is headless (no browser), follow these steps to link your account:
+
+1.  **On the Server (via Manager):**
+    *   Go to **Manage Servers** -> **Configure Auto-Backup** -> **Configure Cloud Storage**.
+    *   Select **Start Rclone Config Wizard**.
+    *   Create a new remote named `gdrive`.
+    *   Select **Google Drive**.
+    *   Leave Client ID/Secret blank (hit Enter).
+    *   **Crucial Step:** When asked `Use auto config?`, answer **n (No)**.
+
+2.  **On Your Local Machine:**
+    *   Download Rclone for Windows: https://rclone.org/downloads/
+    *   Open PowerShell/CMD and run: `rclone authorize "drive"`
+    *   A browser window will open. Sign in to your Google Account.
+    *   Copy the long access token code provided in the terminal.
+
+3.  **Back on the Server:**
+    *   Paste the token code into the prompt.
+    *   Finish the setup (Team Drive: n, Keep: y).
+
 ## Troubleshooting & Recovery
 
 **Q: What happens if I lose my SSH connection?**
