@@ -10,6 +10,7 @@ function Show-Menu {
     Write-Host "1. Deploy / Update Server (Install Scripts)"
     Write-Host "2. Connect to Remote Manager"
     Write-Host "3. Sync Saves (Upload/Download)"
+    Write-Host "4. Setup Cloud Auth (Inject Token)"
     Write-Host "Q. Quit"
     Write-Host "-------------------------------------"
 }
@@ -36,6 +37,10 @@ while ($true) {
         }
         "3" {
             & "$ScriptDir\sync_saves.ps1"
+            Pause
+        }
+        "4" {
+            & "$ScriptDir\setup_cloud.ps1"
             Pause
         }
         "Q" { exit }

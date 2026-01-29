@@ -196,7 +196,15 @@ function manage_servers_menu() {
     # Load config
     source "$instance_dir/settings.sh"
     
+    # Check Backup Status
+    local backup_script="$PROJECT_ROOT/scripts/backup.sh"
+    local cron_status="${RED}[No Backup Schedule]${NC}"
+    if crontab -l 2>/dev/null | grep -q "$backup_script $instance"; then
+        cron_status="${GREEN}[Backups Active]${NC}"
+    fi
+
     echo -e "${YELLOW}Managing: $instance ($GAME)${NC}"
+    echo -e "Status: $cron_status"
     echo "1) Start Server"
     echo "2) Stop Server (Kill Screen)"
     echo "3) View Console (Attach)"
@@ -407,6 +415,28 @@ function manage_servers_menu() {
 while true; do
     clear
     echo -e "${BLUE}=== Universal Game Server Manager ===${NC}"
+    
+    # --- System Health Checks ---
+    # 1. Disk Space (< 1GB warning)
+    DISK_FREE=$(df -k . | tail -1 | awk '{print $4}')
+    if [ "$DISK_FREE" -lt 1048576 ]; then
+        echo -e "${RED}[WARNING] Low Disk Space: $((DISK_FREE/1024))MB free${NC}"
+    fi
+
+    # 2. RAM (< 500MB warning)
+    MEM_FREE=$(free -m | grep Mem | awk '{print $7}')
+    if [ "$MEM_FREE" -lt 500 ]; then
+        echo -e "${RED}[WARNING] Low RAM: ${MEM_FREE}MB available${NC}"
+    fi
+    
+    # 3. Cloud Config Check
+    if command -v rclone &> /dev/null; then
+        if ! rclone listremotes | grep -q "^gdrive:"; then
+             echo -e "${YELLOW}[INFO] Cloud Backups not configured (No 'gdrive' remote)${NC}"
+        fi
+    fi
+    echo "-------------------------------------"
+    
     echo "1) Install / Setup Game"
     echo "2) Manage Servers"
     echo "3) Exit"
