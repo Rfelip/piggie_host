@@ -95,12 +95,16 @@ A generic, lightweight, and dependency-free Bash utility for hosting game server
 
 - [ ] **Refactor `manager.sh`:**
 
-    - [ ] Add Main Menu (Install, Run, Config).
+    - [x] Add Main Menu (Install, Run, Config).
 
-    - [ ] Implement state tracking (Green/Red status).
+    - [x] Implement state tracking (Green/Red status).
 
-    - [ ] Add `install_config` parsing.
+    - [x] Add `install_config` parsing.
 
-- [ ] Add Minecraft/Terraria support.
+- [x] Add Minecraft support.
+
+- [ ] Add Terraria support.
 
 - [ ] Implement automated backup functionality.
+
+
