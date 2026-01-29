@@ -103,9 +103,11 @@ A generic, lightweight, and dependency-free Bash utility for hosting game server
 
 - [x] Add Minecraft support.
 
-- [ ] Add Terraria support.
+- [x] Add Terraria support.
 
 - [ ] Advanced save handling.
+
+
 
 - [ ] Implement automated backup functionality.
 
