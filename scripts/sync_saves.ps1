@@ -83,34 +83,36 @@ if ($Selection -match "^\d+$" -and $Selection -ge 1 -and $Selection -le $Instanc
     exit
 }
 
-# --- Determine Game Type ---
-# We need to know which game this instance is to know the format.
-# We'll cat the settings.sh remotely.
-$Cmd = "cat ~/server_manager/configs/$SelectedInstance/settings.sh | grep 'GAME='"
+# --- Determine Game Type and Active Save ---
+# We need to know which game this instance is and what the active save is.
+$Cmd = "cat ~/server_manager/configs/$SelectedInstance/settings.sh"
 if ($UsePutty) {
-    $RawGame = plink.exe -batch -ssh -i "$KeyPath" "$ServerUser@$ServerIP" "$Cmd"
+    $SettingsContent = plink.exe -batch -ssh -i "$KeyPath" "$ServerUser@$ServerIP" "$Cmd"
 } else {
     $SSHArgs = @("$ServerUser@$ServerIP", "$Cmd")
     if ($KeyPath) { $SSHArgs = @("-i", "$KeyPath") + $SSHArgs }
-    $RawGame = ssh @SSHArgs
+    $SettingsContent = ssh @SSHArgs
 }
 
-if ($RawGame -match "GAME=`"(.*)`"") {
-    $GameType = $matches[1]
-} else {
-    $GameType = "unknown"
+$GameType = "unknown"
+$ActiveSavePath = ""
+
+$SettingsContent -split "`n" | ForEach-Object {
+    if ($_ -match "^GAME=`"(.*)`"") { $GameType = $matches[1] }
+    if ($_ -match "^SAVE_FILE=`"(.*)`"") { $ActiveSavePath = $matches[1] }
 }
 
 $Meta = Get-GameMetadata -GameName $GameType
 $SaveFormat = if ($Meta) { $Meta["save_format"] } else { "file" } # default file
 
 Write-Host "Selected: $SelectedInstance ($GameType)" -ForegroundColor Green
-Write-Host "Save Format: $SaveFormat" -ForegroundColor Gray
+Write-Host "Active Save: $ActiveSavePath" -ForegroundColor Gray
 
 # --- Action Menu ---
 Write-Host ""
 Write-Host "1) Upload Save (Local -> Remote)"
 Write-Host "2) Download Save (Remote -> Local)"
+Write-Host "3) Quick Backup (Download Active Save with Timestamp)"
 $Action = Read-Host "Select action"
 
 $RemoteBasePath = "~/server_manager/configs/$SelectedInstance/saves"
@@ -120,7 +122,7 @@ $LocalBasePath = Join-Path $ProjectRoot "saves\$GameType"
 New-Item -ItemType Directory -Force -Path $LocalBasePath | Out-Null
 
 if ($Action -eq "1") {
-    # --- UPLOAD ---
+    # ... (Upload logic remains same) ...
     Write-Host "Local saves in $LocalBasePath:"
     $LocalFiles = Get-ChildItem -Path $LocalBasePath
     for ($i=0; $i -lt $LocalFiles.Count; $i++) {
@@ -133,6 +135,9 @@ if ($Action -eq "1") {
         
         Write-Host "Uploading $($SourceItem.Name)..." -ForegroundColor Cyan
         
+        # If active save is in a subdirectory (e.g. saves/file.zip), we need to upload to the right place.
+        # But here we are uploading TO 'saves' folder.
+        
         if ($UsePutty) {
             pscp.exe -r -i "$KeyPath" "$($SourceItem.FullName)" "$ServerUser@$ServerIP`:$RemoteBasePath/"
         } else {
@@ -144,8 +149,7 @@ if ($Action -eq "1") {
     }
 
 } elseif ($Action -eq "2") {
-    # --- DOWNLOAD ---
-    # List remote saves
+    # ... (Download logic remains same) ...
     Write-Host "Fetching remote save list..."
     $Cmd = "ls -1 $RemoteBasePath"
     if ($UsePutty) {
@@ -175,5 +179,49 @@ if ($Action -eq "1") {
             scp @SCPArgs
         }
         Write-Host "Download complete." -ForegroundColor Green
+    }
+
+} elseif ($Action -eq "3") {
+    # --- QUICK BACKUP ---
+    if (-not $ActiveSavePath) {
+        Write-Host "Error: Could not determine active save file from settings.sh" -ForegroundColor Red
+        exit
+    }
+    
+    # ActiveSavePath is usually relative to instance dir (e.g., "saves/myworld.zip")
+    # We need to construct the full remote path.
+    $RemoteSaveFull = "~/server_manager/configs/$SelectedInstance/$ActiveSavePath"
+    
+    # Construct Local Name
+    $Timestamp = Get-Date -Format "yyyyMMdd_HHmmss"
+    $BaseName = Split-Path $ActiveSavePath -Leaf
+    
+    # Handle extensions if present
+    if ($BaseName -match "^(.+)(\.[^.]+)$") {
+        $NameOnly = $matches[1]
+        $Ext = $matches[2]
+        $LocalName = "${NameOnly}_${Timestamp}${Ext}"
+    } else {
+        $LocalName = "${BaseName}_${Timestamp}"
+    }
+    
+    $TargetLocalPath = Join-Path $LocalBasePath $LocalName
+    
+    Write-Host "Backing up active save: $ActiveSavePath" -ForegroundColor Cyan
+    Write-Host "Source: $RemoteSaveFull" -ForegroundColor Gray
+    Write-Host "Destination: $TargetLocalPath" -ForegroundColor Gray
+    
+    if ($UsePutty) {
+        pscp.exe -r -i "$KeyPath" "$ServerUser@$ServerIP`:$RemoteSaveFull" "$TargetLocalPath"
+    } else {
+        $SCPArgs = @("-r", "$ServerUser@$ServerIP`:$RemoteSaveFull", "$TargetLocalPath")
+        if ($KeyPath) { $SCPArgs = @("-i", "$KeyPath") + $SCPArgs }
+        scp @SCPArgs
+    }
+    
+    if ($LASTEXITCODE -eq 0) {
+        Write-Host "Backup successful!" -ForegroundColor Green
+    } else {
+        Write-Host "Backup failed. Check if the active save file actually exists on the server." -ForegroundColor Red
     }
 }
