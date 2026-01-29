@@ -65,7 +65,8 @@ if ($Key -and -not $Key.EndsWith(".ppk")) {
 if ($RemoteCommand) {
     if ($UsePutty) {
         # Plink expects command as the last argument
-        plink.exe -ssh -i "$Key" "$User@$SERVER_IP" -t "$RemoteCommand"
+        # Added -keepalive 60 to prevent timeouts
+        plink.exe -ssh -keepalive 60 -i "$Key" "$User@$SERVER_IP" -t "$RemoteCommand"
         exit
     } else {
         $SSHArgs += "-t" # Force pseudo-terminal for interactive menus
@@ -74,9 +75,15 @@ if ($RemoteCommand) {
 } else {
      # Interactive shell fallback for Plink
      if ($UsePutty) {
-        plink.exe -ssh -i "$Key" "$User@$SERVER_IP"
+        plink.exe -ssh -keepalive 60 -i "$Key" "$User@$SERVER_IP"
         exit
      }
 }
+
+# Add KeepAlive for native SSH
+$SSHArgs += "-o"
+$SSHArgs += "ServerAliveInterval=60"
+$SSHArgs += "-o"
+$SSHArgs += "ServerAliveCountMax=3"
 
 ssh @SSHArgs

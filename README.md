@@ -45,6 +45,16 @@ A generic, lightweight, and dependency-free utility for hosting game servers (Fa
     *   Use **"Install Game"** to download binaries (Installed games appear in **Green**).
     *   Use **"Manage Servers"** to Start, Stop, or Edit settings.
 
+## Troubleshooting & Recovery
+
+**Q: What happens if I lose my SSH connection?**
+*   **Game Servers:** They are **safe**. They run in detached `screen` sessions or background services. They will continue running without interruption.
+*   **The Manager:** The manager interface will close.
+*   **To Recover:** Simply run `.\main.ps1` and select **Option 2 (Connect)**. You can then go to "Manage Servers" -> "View Console" to re-attach to any running game.
+
+**Q: My download/install was interrupted.**
+*   If a connection drop interrupts a download (e.g., in the "Install Game" menu), simply reconnect and run the install/update again. The scripts are designed to restart the process safely.
+
 ## To-Do List
 
 - [x] Refactor into a pure Bash `manager.sh`.
