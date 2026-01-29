@@ -144,6 +144,7 @@ Write-Host "Executing remote setup..." -ForegroundColor Cyan
 # 3. Run check_resources
 # 4. Run install_deps
 $RemoteScript = "
+    set -e
     cd $RemoteDir
     find scripts -name '*.sh' -type f -exec sed -i 's/\r$//' {} +
     chmod +x scripts/manager.sh scripts/setup/*.sh games/*/*.sh

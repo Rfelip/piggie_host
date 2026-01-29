@@ -41,16 +41,3 @@ A generic, lightweight, and dependency-free utility for hosting game servers (Fa
 *   **[Setting up Google Drive Backups](docs/setup_google_drive.md):** How to configure cloud backups using "Headless Auth".
 *   **[Adding New Games](docs/adding_games.md):** Guide to creating plugins for new games (Valheim, CS:GO, etc.).
 *   **[Troubleshooting & Recovery](docs/troubleshooting.md):** Common issues, recovery from disconnects, and performance tuning.
-
-## Roadmap
-
-- [x] Refactor into a pure Bash `manager.sh`.
-- [x] Implement generic `games/` plugin structure.
-- [x] Create modular setup scripts (Resource check, Deps).
-- [x] Create deployment orchestrator (`deploy.ps1`).
-- [x] Add Minecraft and Terraria support.
-- [x] Implement Advanced Save Handling (Sync & Quick Backup).
-- [x] Implement automated server-side backup scheduling (Cron).
-- [x] Add "Auto-start on boot" systemd generator.
-- [x] **Improvement:** Optimize deployment (Don't overwrite `configs/` or `saves/` blindly).
-- [x] **Feature:** Handle Server Updates (Version checking/Force Reinstall).

@@ -61,4 +61,16 @@ else
     exit 1
 fi
 
+# ARM Compatibility Check
+ARCH=$(uname -m)
+if [ "$ARCH" == "aarch64" ]; then
+    if ! command -v box64 &> /dev/null; then
+        echo -e "${YELLOW}[WARNING] aarch64 architecture detected but 'box64' is missing.${NC}"
+        echo -e "${YELLOW}You will need 'box64' to run x86_64 games (Factorio, Terraria).${NC}"
+        echo -e "${YELLOW}Please install it manually (e.g., via AUR or source).${NC}"
+    else
+        echo -e "${GREEN}ARM Compatibility: box64 is installed.${NC}"
+    fi
+fi
+
 echo -e "${GREEN}Dependency setup complete.${NC}"
