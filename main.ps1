@@ -1,25 +1,45 @@
 # Main Entry Point
-# Orchestrates deployment and launches the remote manager.
+# Orchestrates deployment, management, and save syncing.
 
 $ErrorActionPreference = "Stop"
 $ScriptDir = "scripts"
 
-Write-Host "=== Universal Game Server Manager ===" -ForegroundColor Cyan
-
-# 1. Deploy Phase
-Write-Host "[Phase 1] Deployment & Setup" -ForegroundColor Green
-& "$ScriptDir\deploy.ps1"
-
-if ($LASTEXITCODE -ne 0) {
-    Write-Host "Deployment failed. Aborting." -ForegroundColor Red
-    exit 1
+function Show-Menu {
+    Clear-Host
+    Write-Host "=== Universal Game Server Manager ===" -ForegroundColor Cyan
+    Write-Host "1. Deploy / Update Server (Install Scripts)"
+    Write-Host "2. Connect to Remote Manager"
+    Write-Host "3. Sync Saves (Upload/Download)"
+    Write-Host "Q. Quit"
+    Write-Host "-------------------------------------"
 }
 
-# 2. Execution Phase
-Write-Host "[Phase 2] Launching Remote Manager" -ForegroundColor Green
-Write-Host "Handing over control to the server..." -ForegroundColor Gray
-
-# Command to run on the server
-$RemoteCmd = "bash -c 'cd ~/server_manager && ./scripts/manager.sh'"
-
-& "$ScriptDir\connect.ps1" -RemoteCommand $RemoteCmd
+while ($true) {
+    Show-Menu
+    $Choice = Read-Host "Select an option"
+    
+    switch ($Choice) {
+        "1" {
+            Write-Host "[Phase 1] Deployment & Setup" -ForegroundColor Green
+            & "$ScriptDir\deploy.ps1"
+            if ($LASTEXITCODE -ne 0) {
+                Write-Host "Deployment failed." -ForegroundColor Red
+            } else {
+                Write-Host "Deployment successful." -ForegroundColor Green
+            }
+            Pause
+        }
+        "2" {
+            Write-Host "[Phase 2] Launching Remote Manager" -ForegroundColor Green
+            $RemoteCmd = "bash -c 'cd ~/server_manager && ./scripts/manager.sh'"
+            & "$ScriptDir\connect.ps1" -RemoteCommand $RemoteCmd
+        }
+        "3" {
+            & "$ScriptDir\sync_saves.ps1"
+            Pause
+        }
+        "Q" { exit }
+        "q" { exit }
+        Default { Write-Host "Invalid option." -ForegroundColor Yellow; Start-Sleep -Seconds 1 }
+    }
+}
