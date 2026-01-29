@@ -76,10 +76,36 @@ function install_game_menu() {
 
     local selected_game="${games[$idx]}"
     local install_script="$GAMES_DIR/$selected_game/install.sh"
+    local update_script="$GAMES_DIR/$selected_game/update.sh"
     local config_ini="$GAMES_DIR/$selected_game/install_config.ini"
 
     echo -e "Selected: $selected_game"
     
+    # Check if already installed
+    get_game_status "$selected_game"
+    local is_installed=$?
+    
+    if [ $is_installed -eq 0 ]; then
+        echo -e "${YELLOW}Game is already installed.${NC}"
+        echo "1) Re-Install / Update"
+        echo "2) Create New Instance"
+        echo "b) Back"
+        read -p "Option: " subopt
+        if [ "$subopt" == "1" ]; then
+            if [ -f "$update_script" ]; then
+                chmod +x "$update_script"
+                "$update_script" "$GAMES_DIR/$selected_game"
+                read -p "Press Enter..."
+                return
+            else
+                echo -e "${RED}No update script found for $selected_game.${NC}"
+            fi
+        elif [ "$subopt" == "b" ]; then
+            return
+        fi
+        # If option 2, fall through to Create Instance
+    fi
+
     # 1. Check/Install Dependencies
     source "$config_ini" 2>/dev/null
     if [ "${dependencies_installed:-0}" -ne 1 ]; then
