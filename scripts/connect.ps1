@@ -1,7 +1,9 @@
 # Connect to Server Script
 # Reads configuration from env/.env and establishes an SSH connection.
 
-$envFile = "env/.env"
+$ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+$ProjectRoot = Split-Path -Parent $ScriptDir
+$envFile = Join-Path $ProjectRoot "env\.env"
 
 if (-not (Test-Path $envFile)) {
     Write-Host "Error: Configuration file '$envFile' not found." -ForegroundColor Red

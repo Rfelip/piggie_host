@@ -11,25 +11,28 @@ A generic, lightweight, and dependency-free Bash utility for hosting game server
 
 ## Project Structure
 
-*   `manager.sh`: The main entry point (Bash).
-*   `setup_env.sh`: Installs system dependencies (`screen`, `wget`, etc.).
+*   `scripts/`: Executable utilities.
+    *   `manager.sh`: The main entry point (Bash).
+    *   `setup_env.sh`: Installs system dependencies.
+    *   `connect.ps1`: Helper to SSH into the server (Windows).
 *   `games/`: Game-specific logic.
     *   `factorio/`: `install.sh` and `start.sh`.
 *   `configs/`: Server instances.
     *   `TBR2026/settings.sh`: Configuration for a specific server instance.
+*   `env/`: Local configuration and secrets (ignored by Git).
 
 ## Usage
 
 1.  **Initialize Environment:**
     ```bash
-    chmod +x setup_env.sh
-    ./setup_env.sh
+    chmod +x scripts/setup_env.sh
+    ./scripts/setup_env.sh
     ```
 
 2.  **Run the Manager:**
     ```bash
-    chmod +x manager.sh
-    ./manager.sh
+    chmod +x scripts/manager.sh
+    ./scripts/manager.sh
     ```
 
 3.  **Add a New Server:**

@@ -30,4 +30,4 @@ if [ -n "$PKG_MGR" ]; then
 fi
 
 echo "Environment setup complete."
-echo "Run './manager.sh' to start the manager."
+echo "Run './scripts/manager.sh' to start the manager."

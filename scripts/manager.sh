@@ -1,8 +1,11 @@
 #!/bin/bash
 
 # Universal Game Server Manager (Bash Edition)
-CONFIGS_DIR="./configs"
-GAMES_DIR="./games"
+# Resolve paths relative to the script location
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
+PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
+CONFIGS_DIR="$PROJECT_ROOT/configs"
+GAMES_DIR="$PROJECT_ROOT/games"
 
 # Colors
 GREEN='\033[0;32m'
