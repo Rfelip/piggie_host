@@ -1,0 +1,4 @@
+*.ppk
+*.zip
+.gemini/
+.env
