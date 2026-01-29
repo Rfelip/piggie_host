@@ -1,6 +1,14 @@
 # Universal Game Server Manager
 
-A generic, lightweight, and dependency-free utility for hosting game servers (Factorio, Minecraft, Terraria, etc.) on Linux servers from a Windows host.
+A generic, lightweight, and dependency-free utility for hosting game servers on Linux servers from a Windows host.
+
+## Supported Games
+
+*   **Factorio** (Native Linux / Box64 on ARM)
+*   **Minecraft** (Java Edition)
+*   **Terraria** (Native Linux / Box64 on ARM)
+*   **Barotrauma** (via SteamCMD / Box64 on ARM)
+*   *More coming soon (Valheim, etc.)*
 
 ## Features
 
@@ -17,7 +25,8 @@ A generic, lightweight, and dependency-free utility for hosting game servers (Fa
 
 *   `main.ps1`: **The Main Entry Point.** Local PowerShell script to deploy, manage, or sync saves.
 *   `scripts/`: Core logic and utilities.
-*   `games/`: Game plugins (Factorio, Minecraft, Terraria).
+    *   `setup/install_steamcmd.sh`: Automated SteamCMD installation.
+*   `games/`: Game plugins (Directory for each supported game).
 *   `configs/`: Server instances (e.g., `TBR2026`).
 *   `docs/`: Detailed documentation and guides.
 
@@ -42,3 +51,8 @@ A generic, lightweight, and dependency-free utility for hosting game servers (Fa
 *   **[Adding New Games](docs/adding_games.md):** Guide to creating plugins for new games (Valheim, CS:GO, etc.).
 *   **[Oracle Cloud Guide](docs/oracle_cloud.md):** Important networking setup for Oracle Ampere VPS users.
 *   **[Troubleshooting & Recovery](docs/troubleshooting.md):** Common issues, recovery from disconnects, and performance tuning.
+
+## To-Do List
+- [x] **Feature:** Handle Server Updates (Version checking/Force Reinstall).
+- [ ] **Feature:** Automated `box64` and `box86` installer for ARM.
+- [ ] **Feature:** Add Valheim support.
