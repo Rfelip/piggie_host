@@ -23,6 +23,10 @@ fi
 if [ ! -d "factorio" ]; then
     echo "Extracting..."
     tar -xJf factorio_headless.tar.xz
+    
+    # Cleanup
+    echo "Cleaning up archive..."
+    rm factorio_headless.tar.xz
 fi
 
 # Setup default settings if missing

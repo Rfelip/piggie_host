@@ -55,3 +55,5 @@ A generic, lightweight, and dependency-free utility for hosting game servers (Fa
 - [x] Implement Advanced Save Handling (Sync & Quick Backup).
 - [ ] Implement automated server-side backup scheduling (Cron).
 - [x] Add "Auto-start on boot" systemd generator.
+- [ ] **Improvement:** Optimize deployment (Don't overwrite `configs/` or `saves/` blindly).
+- [ ] **Feature:** Handle Server Updates (Version checking/Force Reinstall).

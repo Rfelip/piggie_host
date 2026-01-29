@@ -53,6 +53,8 @@ if [ -d "$LINUX_DIR" ]; then
     cp -r "$LINUX_DIR"/* .
     # Cleanup raw folder
     rm -rf "$(dirname "$LINUX_DIR")" 2>/dev/null
+    # Cleanup archive
+    rm "$ZIP_NAME"
 else
     echo -e "${RED}Error: Could not locate Linux server files in archive.${NC}"
     exit 1
