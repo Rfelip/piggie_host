@@ -15,16 +15,15 @@ cd "$INSTALL_PATH/factorio" || exit 1
 
 ARCH=$(uname -m)
 if [ "$ARCH" == "aarch64" ]; then
+    if ! command -v box64 &> /dev/null; then
+        echo "Error: aarch64 detected but box64 is not installed."
+        echo "Please install box64 to run x86_64 Factorio on ARM."
+        exit 1
+    fi
     EXEC_CMD="box64 ./bin/x64/factorio"
 else
     EXEC_CMD="./bin/x64/factorio"
 fi
-
-# The manager will handle the 'screen' session wrapping, this script just runs the game command
-# or we can keep screen here. Keeping screen here allows game-specific screen flags.
-# However, the manager wants to control the process. 
-# Let's output the command to be run, or run it directly.
-# Better: Run it directly, let the manager wrap it in screen/systemd.
 
 echo "Starting Factorio..."
 echo "Exec: $EXEC_CMD --start-server $SAVE_FILE --server-settings ${SETTINGS_FILE:-data/server-settings.json}"

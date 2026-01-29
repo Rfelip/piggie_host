@@ -33,6 +33,13 @@ elif command -v yum &> /dev/null; then
     if [ $? -eq 0 ]; then
         sed -i 's/^dependencies_installed=.*/dependencies_installed=1/' "$(dirname "$0")/install_config.ini"
     fi
+elif command -v pacman &> /dev/null; then
+    echo "Installing Java 21 (Arch Linux)..."
+    sudo pacman -S --noconfirm jre21-openjdk-headless
+    
+    if [ $? -eq 0 ]; then
+        sed -i 's/^dependencies_installed=.*/dependencies_installed=1/' "$(dirname "$0")/install_config.ini"
+    fi
 else
     echo -e "${RED}Unsupported package manager. Please install Java 21 manually.${NC}"
 fi

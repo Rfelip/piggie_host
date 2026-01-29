@@ -17,6 +17,10 @@ elif command -v yum &> /dev/null; then
     PKG_MGR="yum"
     INSTALL_CMD="sudo yum install -y"
     UPDATE_CMD="sudo yum check-update"
+elif command -v pacman &> /dev/null; then
+    PKG_MGR="pacman"
+    INSTALL_CMD="sudo pacman -S --noconfirm"
+    UPDATE_CMD="sudo pacman -Sy"
 else
     echo -e "${RED}Warning: Unsupported package manager. Please install dependencies manually.${NC}"
     exit 0
@@ -27,8 +31,13 @@ if [ -n "$PKG_MGR" ]; then
     echo "Updating package lists..."
     $UPDATE_CMD
     
-    echo "Installing core tools (wget, tar, xz, git, nano, zip, unzip, cron)..."
-    $INSTALL_CMD wget tar xz-utils git nano zip unzip cron
+    echo "Installing core tools..."
+    if [ "$PKG_MGR" == "pacman" ]; then
+        $INSTALL_CMD wget tar xz git nano zip unzip cronie
+        sudo systemctl enable --now cronie
+    else
+        $INSTALL_CMD wget tar xz-utils git nano zip unzip cron
+    fi
     
     echo "Attempting to install 'screen'..."
     $INSTALL_CMD screen

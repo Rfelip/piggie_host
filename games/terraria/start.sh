@@ -8,10 +8,20 @@ SETTINGS_FILE="$3"  # Path to serverconfig.txt
 
 cd "$INSTALL_PATH" || exit 1
 
-EXEC_CMD="./TerrariaServer.bin.x86_64"
+ARCH=$(uname -m)
+if [ "$ARCH" == "aarch64" ]; then
+    if ! command -v box64 &> /dev/null; then
+        echo "Error: aarch64 detected but box64 is not installed."
+        echo "Please install box64 to run x86_64 Terraria on ARM."
+        exit 1
+    fi
+    EXEC_CMD="box64 ./TerrariaServer.bin.x86_64"
+else
+    EXEC_CMD="./TerrariaServer.bin.x86_64"
+fi
 
 # Check permissions
-chmod +x "$EXEC_CMD"
+chmod +x ./TerrariaServer.bin.x86_64
 
 echo "Starting Terraria Server..."
 echo "World: $SAVE_FILE"
