@@ -58,57 +58,82 @@ if ($UsePutty) {
     ssh @SSHArgs
 }
 
-# 4. Upload Scripts (Safe Deployment)
-Write-Host "Preparing deployment package..." -ForegroundColor Gray
+# 4. Upload Scripts (Smart Deployment)
+Write-Host "Syncing code (scripts/games)..." -ForegroundColor Gray
 
-# Create a temporary staging directory
-$TmpDeploy = Join-Path $ProjectRoot "deploy_tmp"
-if (Test-Path $TmpDeploy) { Remove-Item -Recurse -Force $TmpDeploy }
-New-Item -ItemType Directory -Path $TmpDeploy | Out-Null
+# Create a clean staging area for code only
+$TmpCode = Join-Path $ProjectRoot "deploy_code_tmp"
+if (Test-Path $TmpCode) { Remove-Item -Recurse -Force $TmpCode }
+New-Item -ItemType Directory -Path $TmpCode | Out-Null
+Copy-Item -Recurse -Path (Join-Path $ProjectRoot "scripts") -Destination $TmpCode
+Copy-Item -Recurse -Path (Join-Path $ProjectRoot "games") -Destination $TmpCode
 
-# Copy Scripts and Games (Safe to overwrite)
-Copy-Item -Recurse -Path (Join-Path $ProjectRoot "scripts") -Destination $TmpDeploy
-Copy-Item -Recurse -Path (Join-Path $ProjectRoot "games") -Destination $TmpDeploy
-
-# Copy Configs but EXCLUDE saves and zip files
-$ConfigSrc = Join-Path $ProjectRoot "configs"
-$ConfigDst = Join-Path $TmpDeploy "configs"
-New-Item -ItemType Directory -Path $ConfigDst | Out-Null
-
-if (Test-Path $ConfigSrc) {
-    Get-ChildItem -Path $ConfigSrc -Directory | ForEach-Object {
-        $InstanceName = $_.Name
-        $SrcInst = $_.FullName
-        $DstInst = Join-Path $ConfigDst $InstanceName
-        New-Item -ItemType Directory -Path $DstInst | Out-Null
-        
-        # Copy everything EXCEPT 'saves' and '*.zip'
-        Get-ChildItem -Path $SrcInst | Where-Object { $_.Name -ne "saves" -and $_.Extension -ne ".zip" } | ForEach-Object {
-            Copy-Item -Recurse -Path $_.FullName -Destination $DstInst
-        }
-    }
-}
-
-Write-Host "Uploading files..." -ForegroundColor Gray
-
+# Upload Code (Overwrite)
 if ($UsePutty) {
-    # Upload the contents of deploy_tmp to remote
-    # pscp doesn't support "content of folder", so we upload the subfolders
-    Get-ChildItem -Path $TmpDeploy | ForEach-Object {
+    Get-ChildItem -Path $TmpCode | ForEach-Object {
         pscp.exe -r -i "$KeyPath" "$($_.FullName)" "$ServerUser@$ServerIP`:$RemoteDir/"
     }
 } else {
-    # scp recursive
-    # We upload the contents of deploy_tmp/*
-    $Files = Get-ChildItem -Path $TmpDeploy | Select-Object -ExpandProperty FullName
+    $Files = Get-ChildItem -Path $TmpCode | Select-Object -ExpandProperty FullName
     $SCPArgs = @("-r") + $Files + @("$ServerUser@$ServerIP`:$RemoteDir/")
     if ($KeyPath) { $SCPArgs = @("-i", "$KeyPath") + $SCPArgs }
     scp @SCPArgs
 }
+Remove-Item -Recurse -Force $TmpCode
 
-# Cleanup
-Remove-Item -Recurse -Force $TmpDeploy
-Write-Host "Upload complete." -ForegroundColor Gray
+# Smart Config Upload
+Write-Host "Syncing configurations..." -ForegroundColor Gray
+
+# 1. Get list of remote instances
+$Cmd = "ls -1 $RemoteDir/configs 2>/dev/null"
+if ($UsePutty) {
+    $RemoteOutput = plink.exe -batch -ssh -i "$KeyPath" "$ServerUser@$ServerIP" "$Cmd"
+} else {
+    $SSHArgs = @("$ServerUser@$ServerIP", "$Cmd")
+    if ($KeyPath) { $SSHArgs = @("-i", "$KeyPath") + $SSHArgs }
+    $RemoteOutput = ssh @SSHArgs
+}
+$RemoteInstances = $RemoteOutput -split "`n" | Where-Object { $_ -match "\S" } | ForEach-Object { $_.Trim() }
+
+# 2. Iterate local configs
+$LocalConfigDir = Join-Path $ProjectRoot "configs"
+if (Test-Path $LocalConfigDir) {
+    Get-ChildItem -Path $LocalConfigDir -Directory | ForEach-Object {
+        $InstanceName = $_.Name
+        
+        if ($RemoteInstances -contains $InstanceName) {
+            Write-Host "  Skipping '$InstanceName' (Exists on server)" -ForegroundColor DarkGray
+        } else {
+            Write-Host "  Uploading new instance: '$InstanceName'" -ForegroundColor Green
+            
+            # Create a clean version of this specific config (no saves)
+            $TmpConfigInst = Join-Path $ProjectRoot "deploy_config_tmp_$InstanceName"
+            New-Item -ItemType Directory -Path $TmpConfigInst | Out-Null
+            
+            # Copy contents excluding saves/zips
+            Get-ChildItem -Path $_.FullName | Where-Object { $_.Name -ne "saves" -and $_.Extension -ne ".zip" } | ForEach-Object {
+                Copy-Item -Recurse -Path $_.FullName -Destination $TmpConfigInst
+            }
+            
+            # Upload this single instance folder
+            $RemoteConfigParent = "$RemoteDir/configs/$InstanceName"
+            # Ensure parent exists (mkdir is done in step 3 but redundant safety is cheap)
+            
+            if ($UsePutty) {
+                # pscp to upload contents TO the folder requires folder to exist usually, or we upload folder name
+                # Simplest: Upload the folder itself into configs/
+                pscp.exe -r -i "$KeyPath" "$TmpConfigInst" "$ServerUser@$ServerIP`:$RemoteDir/configs/$InstanceName"
+            } else {
+                # scp -r local remote
+                $SCPArgs = @("-r", "$TmpConfigInst", "$ServerUser@$ServerIP`:$RemoteDir/configs/$InstanceName")
+                if ($KeyPath) { $SCPArgs = @("-i", "$KeyPath") + $SCPArgs }
+                scp @SCPArgs
+            }
+            
+            Remove-Item -Recurse -Force $TmpConfigInst
+        }
+    }
+}
 
 # 5. Execute Setup
 Write-Host "Executing remote setup..." -ForegroundColor Cyan
