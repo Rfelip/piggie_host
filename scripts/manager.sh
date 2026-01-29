@@ -198,7 +198,19 @@ function manage_servers_menu() {
             if screen -list | grep -q "\.${session_name}\s"; then
                 echo -e "${RED}Already running.${NC}"
             else
-                echo "Starting..."
+                # Check if systemd service exists
+                if [ -f "/etc/systemd/system/${session_name}.service" ]; then
+                    echo -e "${YELLOW}Systemd service detected.${NC}"
+                    read -p "Start via systemd? (y/n): " use_sys
+                    if [ "$use_sys" == "y" ]; then
+                        sudo systemctl start "$session_name"
+                        echo -e "${GREEN}Start signal sent via systemd.${NC}"
+                        read -p "Press Enter..."
+                        continue
+                    fi
+                fi
+                
+                echo "Starting manually..."
                 chmod +x "$start_script"
                 # Resolve paths relative to instance dir for saves
                 local abs_save="$instance_dir/$SAVE_FILE"
@@ -238,23 +250,50 @@ function manage_servers_menu() {
             fi
             ;;
         6)
-            local gen_script="$PROJECT_ROOT/scripts/setup/generate_service.sh"
-            chmod +x "$gen_script"
-            "$gen_script" "$instance"
-            
             local service_name="game-$instance"
-            echo -e "\n${YELLOW}Systemd Service Options:${NC}"
-            echo "1) Enable (Start on boot)"
-            echo "2) Disable (Don't start on boot)"
-            echo "3) Start Now"
-            echo "4) Stop Now"
+            local is_installed=0
+            local status_text="${RED}(Not Configured)${NC}"
+            
+            # Check if service file exists
+            if [ -f "/etc/systemd/system/${service_name}.service" ]; then
+                is_installed=1
+                # Check Enabled Status
+                if systemctl is-enabled "$service_name" &>/dev/null; then
+                    status_text="${GREEN}(Enabled)${NC}"
+                else
+                    status_text="${YELLOW}(Disabled)${NC}"
+                fi
+                # Check Active Status
+                if systemctl is-active "$service_name" &>/dev/null; then
+                    status_text="$status_text ${GREEN}[Running]${NC}"
+                else
+                    status_text="$status_text ${RED}[Stopped]${NC}"
+                fi
+            fi
+
+            echo -e "\n${YELLOW}Systemd Service Configuration${NC}"
+            echo -e "Current Status: $status_text"
+            echo "1) Install/Update Service File"
+            if [ $is_installed -eq 1 ]; then
+                echo "2) Enable (Start on boot)"
+                echo "3) Disable (Don't start on boot)"
+                echo "4) Start Service Now"
+                echo "5) Stop Service Now"
+            fi
             echo "b) Back"
+            
             read -p "Selection: " sys_opt
             case $sys_opt in
-                1) sudo systemctl enable "$service_name" ;;
-                2) sudo systemctl disable "$service_name" ;;
-                3) sudo systemctl start "$service_name" ;;
-                4) sudo systemctl stop "$service_name" ;;
+                1)
+                    local gen_script="$PROJECT_ROOT/scripts/setup/generate_service.sh"
+                    chmod +x "$gen_script"
+                    "$gen_script" "$instance"
+                    read -p "Service generated. Press Enter..."
+                    ;;
+                2) sudo systemctl enable "$service_name"; read -p "Enabled. Press Enter..." ;;
+                3) sudo systemctl disable "$service_name"; read -p "Disabled. Press Enter..." ;;
+                4) sudo systemctl start "$service_name"; read -p "Signal sent. Press Enter..." ;;
+                5) sudo systemctl stop "$service_name"; read -p "Signal sent. Press Enter..." ;;
             esac
             ;;
         *)

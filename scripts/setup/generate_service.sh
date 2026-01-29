@@ -35,8 +35,9 @@ After=network.target
 Type=forking
 User=$USER
 WorkingDirectory=$PROJECT_ROOT
-# Start in a detached screen session
-ExecStart=/usr/bin/screen -dmS $SERVICE_NAME bash -c '$START_SCRIPT $INSTALL_PATH $ABS_SAVE_FILE $ABS_SETTINGS_FILE'
+# Start in a detached screen session, but only if it's not already running
+# We check 'screen -list' for the exact session name to prevent duplicates.
+ExecStart=/bin/bash -c "! /usr/bin/screen -list | grep -q '\.${SERVICE_NAME}\s' && /usr/bin/screen -dmS ${SERVICE_NAME} /bin/bash -c '${START_SCRIPT} ${INSTALL_PATH} ${ABS_SAVE_FILE} ${ABS_SETTINGS_FILE}'"
 # Stop by sending quit command to screen
 ExecStop=/usr/bin/screen -S $SERVICE_NAME -X quit
 Restart=always
