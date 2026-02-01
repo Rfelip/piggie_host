@@ -33,10 +33,14 @@ if [ -n "$PKG_MGR" ]; then
     
     echo "Installing core tools..."
     if [ "$PKG_MGR" == "pacman" ]; then
-        $INSTALL_CMD wget tar xz git nano zip unzip cronie rclone
+        $INSTALL_CMD wget tar xz git nano zip unzip cronie rclone mono
         sudo systemctl enable --now cronie
+    elif [ "$PKG_MGR" == "apt-get" ]; then
+        $INSTALL_CMD wget tar xz-utils git nano zip unzip cron rclone mono-complete
     else
         $INSTALL_CMD wget tar xz-utils git nano zip unzip cron rclone
+        # Mono might be named differently on yum, usually mono-core or mono-complete
+        $INSTALL_CMD mono-core || echo "Warning: mono-core not found, skipping."
     fi
     
     echo "Attempting to install 'screen'..."

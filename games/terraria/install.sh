@@ -4,7 +4,7 @@
 
 INSTALL_PATH="$1"
 # Update this URL when new versions release
-DOWNLOAD_URL="https://terraria.org/api/download/pc-dedicated-server/terraria-server-1449.zip"
+DOWNLOAD_URL="https://terraria.org/api/download/pc-dedicated-server/terraria-server-1453.zip"
 ZIP_NAME="terraria-server.zip"
 
 # Colors
@@ -15,12 +15,14 @@ NC='\033[0m'
 echo -e "${GREEN}=== Terraria Setup ===${NC}"
 
 # 1. Dependencies
-# Terraria doesn't need much, mainly unzip.
+# Terraria needs unzip and mono.
 if command -v apt-get &> /dev/null; then
     sudo apt-get update
-    sudo apt-get install -y unzip
+    sudo apt-get install -y unzip mono-complete
 elif command -v yum &> /dev/null; then
-    sudo yum install -y unzip
+    sudo yum install -y unzip mono-core
+elif command -v pacman &> /dev/null; then
+    sudo pacman -S --noconfirm unzip mono
 fi
 
 sed -i 's/^dependencies_installed=.*/dependencies_installed=1/' "$(dirname "$0")/install_config.ini"
@@ -55,13 +57,23 @@ if [ -d "$LINUX_DIR" ]; then
     rm -rf "$(dirname "$LINUX_DIR")" 2>/dev/null
     # Cleanup archive
     rm "$ZIP_NAME"
+
+    # --- Mono Sync Fix ---
+    # To prevent "runtime and class libraries out of sync" errors
+    echo "Applying Mono compatibility fixes..."
+    rm -f System*.dll
+    rm -f Mono*.dll
+    rm -f monoconfig
+    rm -f mscorlib.dll
+    # WindowsBase.dll and FNA.dll should remain
 else
     echo -e "${RED}Error: Could not locate Linux server files in archive.${NC}"
     exit 1
 fi
 
 # Make executable
-chmod +x TerrariaServer.bin.x86_64
+chmod +x TerrariaServer.bin.x86_64 2>/dev/null
+chmod +x TerrariaServer.exe 2>/dev/null
 
 # Create default config if not exists
 if [ ! -f "serverconfig.txt" ]; then

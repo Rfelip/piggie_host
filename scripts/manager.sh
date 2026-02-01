@@ -103,6 +103,7 @@ function install_game_menu() {
         echo -e "${YELLOW}Game is already installed.${NC}"
         echo "1) Re-Install / Update"
         echo "2) Create New Instance"
+        echo "3) Remove Game Installation"
         echo "b) Back"
         read -p "Option: " subopt
         if [ "$subopt" == "1" ]; then
@@ -114,6 +115,19 @@ function install_game_menu() {
             else
                 echo -e "${RED}No update script found for $selected_game.${NC}"
             fi
+        elif [ "$subopt" == "3" ]; then
+            echo -e "${RED}WARNING: This will delete all files in $GAMES_DIR/$selected_game.${NC}"
+            read -p "Are you sure? (y/n): " confirm
+            if [ "$confirm" == "y" ]; then
+                rm -rf "$GAMES_DIR/$selected_game"
+                mkdir -p "$GAMES_DIR/$selected_game"
+                # Reset config
+                echo "game_installed=0" > "$config_ini"
+                echo "dependencies_installed=1" >> "$config_ini"
+                echo -e "${GREEN}Game removed.${NC}"
+            fi
+            read -p "Press Enter..."
+            return
         elif [ "$subopt" == "b" ]; then
             return
         fi
@@ -226,6 +240,10 @@ function manage_servers_menu() {
     echo "5) Edit Game Server Settings (e.g. server.properties)"
     echo "6) Configure Auto-start (systemd)"
     echo "7) Configure Auto-Backup (Cron)"
+    if [ "$GAME" == "terraria" ]; then
+        echo "t) Troubleshoot: Fix Mono Sync Error"
+    fi
+    echo "8) Delete Server Instance (Permanent)"
     echo "b) Back"
     
     read -p "Action: " action
@@ -265,9 +283,23 @@ function manage_servers_menu() {
                 local abs_save="$instance_dir/$SAVE_FILE"
                 local abs_settings="$instance_dir/$SETTINGS_FILE"
                 
+                # Input Handling (Terraria needs console for initial setup usually)
+                local start_mode="detached"
+                if [ "$GAME" == "terraria" ]; then
+                    echo -e "${YELLOW}Note: Terraria often requires initial input (world creation/selection).${NC}"
+                    read -p "Start in attached mode? (y/n): " attach_now
+                    if [ "$attach_now" == "y" ]; then start_mode="attached"; fi
+                fi
+
                 # Using screen
-                screen -dmS "$session_name" bash -c "'$start_script' '$INSTALL_PATH' '$abs_save' '$abs_settings' || { echo 'Crash'; read; }"
-                echo -e "${GREEN}Started.${NC}"
+                if [ "$start_mode" == "attached" ]; then
+                    echo -e "${GREEN}Starting and attaching... Press Ctrl+A, D to detach later.${NC}"
+                    sleep 2
+                    screen -S "$session_name" bash -c "\"$start_script\" \"$INSTALL_PATH\" \"$abs_save\" \"$abs_settings\"; echo '---'; echo 'Process finished. Press Enter to exit screen...'; read"
+                else
+                    screen -dmS "$session_name" bash -c "\"$start_script\" \"$INSTALL_PATH\" \"$abs_save\" \"$abs_settings\"; echo '---'; echo 'Process finished/crashed. Use screen -r to see this.'; read"
+                    echo -e "${GREEN}Started in background (detached).${NC}"
+                fi
             fi
             ;;
         2)
@@ -416,6 +448,48 @@ function manage_servers_menu() {
                     fi
                     read -p "Press Enter..."
                 fi
+            fi
+            ;;
+        8)
+            echo -e "${RED}WARNING: PERMANENT DELETION of instance '$instance'.${NC}"
+            echo "This will:"
+            echo " - Stop the server"
+            echo " - Remove the instance directory ($instance_dir)"
+            echo " - Remove systemd service"
+            echo " - Remove cron backup job"
+            read -p "Are you sure? Type 'DELETE' to confirm: " confirm
+            if [ "$confirm" == "DELETE" ]; then
+                # Stop
+                local session_name="game-$instance"
+                screen -S "$session_name" -X quit &>/dev/null
+                
+                # Systemd
+                local service_name="game-$instance"
+                sudo systemctl disable "$service_name" &>/dev/null
+                sudo systemctl stop "$service_name" &>/dev/null
+                sudo rm "/etc/systemd/system/${service_name}.service" &>/dev/null
+                sudo systemctl daemon-reload
+                
+                # Cron
+                local backup_script="$PROJECT_ROOT/scripts/backup.sh"
+                crontab -l 2>/dev/null | grep -v "$backup_script $instance" | crontab -
+                
+                # Files
+                rm -rf "$instance_dir"
+                echo -e "${GREEN}Instance '$instance' deleted.${NC}"
+                read -p "Press Enter..."
+                return
+            else
+                echo "Deletion cancelled."
+            fi
+            ;;
+        t)
+            if [ "$GAME" == "terraria" ]; then
+                echo -e "${YELLOW}Applying Mono Sync Fix for Terraria...${NC}"
+                cd "$INSTALL_PATH" || return
+                rm -f System*.dll Mono*.dll monoconfig mscorlib.dll
+                echo -e "${GREEN}Cleanup complete. Try starting the server again.${NC}"
+                read -p "Press Enter..."
             fi
             ;;
         *)

@@ -6,34 +6,41 @@ INSTALL_PATH="$1"
 SAVE_FILE="$2"      # Path to world file (e.g., saves/MyWorld.wld)
 SETTINGS_FILE="$3"  # Path to serverconfig.txt
 
-cd "$INSTALL_PATH" || exit 1
+echo "--- Terraria Start Script Debug ---"
+echo "Target Install Path: $INSTALL_PATH"
+echo "Save File: $SAVE_FILE"
+echo "Settings File: $SETTINGS_FILE"
+echo "Current Directory: $(pwd)"
 
-ARCH=$(uname -m)
-if [ "$ARCH" == "aarch64" ]; then
-    if ! command -v box64 &> /dev/null; then
-        echo "Error: aarch64 detected but box64 is not installed."
-        echo "Please install box64 to run x86_64 Terraria on ARM."
-        exit 1
-    fi
-    EXEC_CMD="box64 ./TerrariaServer.bin.x86_64"
-else
-    EXEC_CMD="./TerrariaServer.bin.x86_64"
+cd "$INSTALL_PATH" || { echo "ERROR: Could not change to directory $INSTALL_PATH"; exit 1; }
+echo "Changed directory to: $(pwd)"
+
+# Check if mono is installed
+if ! command -v mono &> /dev/null; then
+    echo "ERROR: mono is not installed. Please install mono-complete."
+    exit 1
 fi
 
-# Check permissions
-chmod +x ./TerrariaServer.bin.x86_64
+if [ ! -f "./TerrariaServer.exe" ]; then
+    echo "ERROR: TerrariaServer.exe not found in $(pwd)"
+    ls -F
+    exit 1
+fi
 
-echo "Starting Terraria Server..."
-echo "World: $SAVE_FILE"
-echo "Config: $SETTINGS_FILE"
+echo "Starting Terraria Server via Mono..."
 
-# Terraria needs absolute paths sometimes, or relative to CWD.
-# We are in INSTALL_PATH.
-# The manager passed absolute paths for SAVE_FILE and SETTINGS_FILE in manager.sh (ABS_SAVE_FILE).
+# Logic for World file
+# If SAVE_FILE exists, use it. If not, launch without -world to allow interactive creation.
+if [ -f "$SAVE_FILE" ]; then
+    echo "Existing world found: $SAVE_FILE"
+    WORLD_ARG="-world \"$SAVE_FILE\""
+else
+    echo "World file not found at $SAVE_FILE"
+    echo "Launching in interactive mode (you will need to create/select a world)..."
+    WORLD_ARG=""
+    # Ensure the parent directory of the save file exists so it can be saved later
+    mkdir -p "$(dirname "$SAVE_FILE")"
+fi
 
 # Launch
-# -x64 is implicit in the binary name
-# We pass -config and -world. 
-# Note: If -world is set, it overrides config.
-
-$EXEC_CMD -config "$SETTINGS_FILE" -world "$SAVE_FILE"
+mono --server --gc=sgen -O=all ./TerrariaServer.exe -config "$SETTINGS_FILE" $WORLD_ARG
