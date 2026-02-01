@@ -1,6 +1,10 @@
 # Deploy and Setup Script
 # Orchestrates the upload and execution of the server manager on the remote host.
 
+param(
+    [switch]$Force
+)
+
 $ErrorActionPreference = "Stop"
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $ProjectRoot = Split-Path -Parent $ScriptDir
@@ -61,25 +65,67 @@ if ($UsePutty) {
 # 4. Upload Scripts (Smart Deployment)
 Write-Host "Syncing code (scripts/games)..." -ForegroundColor Gray
 
-# Create a clean staging area for code only
-$TmpCode = Join-Path $ProjectRoot "deploy_code_tmp"
-if (Test-Path $TmpCode) { Remove-Item -Recurse -Force $TmpCode }
-New-Item -ItemType Directory -Path $TmpCode | Out-Null
-Copy-Item -Recurse -Path (Join-Path $ProjectRoot "scripts") -Destination $TmpCode
-Copy-Item -Recurse -Path (Join-Path $ProjectRoot "games") -Destination $TmpCode
-
-# Upload Code (Overwrite)
+# Check if code already exists to avoid redundant upload
+$CodeExistsCmd = "if [ -d $RemoteDir/scripts ]; then echo 'exists'; fi"
 if ($UsePutty) {
-    Get-ChildItem -Path $TmpCode | ForEach-Object {
-        pscp.exe -r -i "$KeyPath" "$($_.FullName)" "$ServerUser@$ServerIP`:$RemoteDir/"
+    $CodeStatus = plink.exe -batch -ssh -i "$KeyPath" "$ServerUser@$ServerIP" "$CodeExistsCmd"
+} else {
+    $SSHArgs = @("$ServerUser@$ServerIP", "$CodeExistsCmd")
+    if ($KeyPath) { $SSHArgs = @("-i", "$KeyPath") + $SSHArgs }
+    $CodeStatus = ssh @SSHArgs
+}
+
+if ($CodeStatus -and $CodeStatus.Trim() -eq "exists") {
+    if ($Force) {
+        Write-Host "  Force flag detected. Re-deploying code..." -ForegroundColor Yellow
+        $DoDeploy = $true
+    } else {
+        Write-Host "  Code already exists on server." -ForegroundColor DarkGray
+        $Choice = Read-Host "  Do you want to force re-deploy scripts and games? (y/N)"
+        if ($Choice -eq "y") {
+            $DoDeploy = $true
+        } else {
+            $DoDeploy = $false
+        }
     }
 } else {
-    $Files = Get-ChildItem -Path $TmpCode | Select-Object -ExpandProperty FullName
-    $SCPArgs = @("-r") + $Files + @("$ServerUser@$ServerIP`:$RemoteDir/")
-    if ($KeyPath) { $SCPArgs = @("-i", "$KeyPath") + $SCPArgs }
-    scp @SCPArgs
+    $DoDeploy = $true
 }
-Remove-Item -Recurse -Force $TmpCode
+
+if ($DoDeploy) {
+    Write-Host "  Uploading code..." -ForegroundColor Cyan
+    # Create a clean staging area for code only (excluding install_config.ini)
+    $TmpCode = Join-Path $ProjectRoot "deploy_code_tmp"
+    if (Test-Path $TmpCode) { Remove-Item -Recurse -Force $TmpCode }
+    New-Item -ItemType Directory -Path $TmpCode | Out-Null
+    Copy-Item -Recurse -Path (Join-Path $ProjectRoot "scripts") -Destination $TmpCode
+    
+    # Copy games folder but exclude install_config.ini
+    $GamesDest = Join-Path $TmpCode "games"
+    New-Item -ItemType Directory -Path $GamesDest | Out-Null
+    Get-ChildItem -Path (Join-Path $ProjectRoot "games") -Directory | ForEach-Object {
+        $DestDir = Join-Path $GamesDest $_.Name
+        New-Item -ItemType Directory -Path $DestDir | Out-Null
+        Get-ChildItem -Path $_.FullName | Where-Object { $_.Name -ne "install_config.ini" } | ForEach-Object {
+            Copy-Item -Recurse -Path $_.FullName -Destination $DestDir
+        }
+    }
+
+    # Upload Code
+    if ($UsePutty) {
+        Get-ChildItem -Path $TmpCode | ForEach-Object {
+            pscp.exe -r -i "$KeyPath" "$($_.FullName)" "$ServerUser@$ServerIP`:${RemoteDir}/"
+        }
+    } else {
+        $Files = Get-ChildItem -Path $TmpCode | Select-Object -ExpandProperty FullName
+        $SCPArgs = @("-r") + $Files + @("$ServerUser@$ServerIP`:${RemoteDir}/")
+        if ($KeyPath) { $SCPArgs = @("-i", "$KeyPath") + $SCPArgs }
+        scp @SCPArgs
+    }
+    Remove-Item -Recurse -Force $TmpCode
+} else {
+    Write-Host "  Skipping code upload." -ForegroundColor DarkGray
+}
 
 # Smart Config Upload
 Write-Host "Syncing configurations..." -ForegroundColor Gray
@@ -100,38 +146,36 @@ $LocalConfigDir = Join-Path $ProjectRoot "configs"
 if (Test-Path $LocalConfigDir) {
     Get-ChildItem -Path $LocalConfigDir -Directory | ForEach-Object {
         $InstanceName = $_.Name
+        $IsNew = $RemoteInstances -notcontains $InstanceName
         
-        if ($RemoteInstances -contains $InstanceName) {
-            Write-Host "  Skipping '$InstanceName' (Exists on server)" -ForegroundColor DarkGray
-        } else {
+        if ($IsNew) {
             Write-Host "  Uploading new instance: '$InstanceName'" -ForegroundColor Green
-            
-            # Create a clean version of this specific config (no saves)
-            $TmpConfigInst = Join-Path $ProjectRoot "deploy_config_tmp_$InstanceName"
-            New-Item -ItemType Directory -Path $TmpConfigInst | Out-Null
-            
-            # Copy contents excluding saves/zips
-            Get-ChildItem -Path $_.FullName | Where-Object { $_.Name -ne "saves" -and $_.Extension -ne ".zip" } | ForEach-Object {
-                Copy-Item -Recurse -Path $_.FullName -Destination $TmpConfigInst
-            }
-            
-            # Upload this single instance folder
-            $RemoteConfigParent = "$RemoteDir/configs/$InstanceName"
-            # Ensure parent exists (mkdir is done in step 3 but redundant safety is cheap)
-            
-            if ($UsePutty) {
-                # pscp to upload contents TO the folder requires folder to exist usually, or we upload folder name
-                # Simplest: Upload the folder itself into configs/
-                pscp.exe -r -i "$KeyPath" "$TmpConfigInst" "$ServerUser@$ServerIP`:$RemoteDir/configs/$InstanceName"
-            } else {
-                # scp -r local remote
-                $SCPArgs = @("-r", "$TmpConfigInst", "$ServerUser@$ServerIP`:$RemoteDir/configs/$InstanceName")
-                if ($KeyPath) { $SCPArgs = @("-i", "$KeyPath") + $SCPArgs }
-                scp @SCPArgs
-            }
-            
-            Remove-Item -Recurse -Force $TmpConfigInst
+        } else {
+            Write-Host "  Updating existing instance: '$InstanceName'" -ForegroundColor Gray
         }
+        
+        # Create a clean version of this specific config (no saves)
+        $TmpConfigInst = Join-Path $ProjectRoot "deploy_config_tmp_$InstanceName"
+        if (Test-Path $TmpConfigInst) { Remove-Item -Recurse -Force $TmpConfigInst }
+        New-Item -ItemType Directory -Path $TmpConfigInst | Out-Null
+        
+        # Copy contents excluding saves/zips
+        Get-ChildItem -Path $_.FullName | Where-Object { $_.Name -ne "saves" -and $_.Extension -ne ".zip" } | ForEach-Object {
+            Copy-Item -Recurse -Path $_.FullName -Destination $TmpConfigInst
+        }
+        
+        # Upload contents of the temp folder to the remote instance folder
+        if ($UsePutty) {
+            # pscp -r contents\* remote:dir/
+            pscp.exe -r -i "$KeyPath" "$TmpConfigInst\*" "$ServerUser@$ServerIP`:$RemoteDir/configs/$InstanceName/"
+        } else {
+            # scp -r local/* remote
+            $SCPArgs = @("-r", "$TmpConfigInst/*", "$ServerUser@$ServerIP`:$RemoteDir/configs/$InstanceName/")
+            if ($KeyPath) { $SCPArgs = @("-i", "$KeyPath") + $SCPArgs }
+            scp @SCPArgs
+        }
+        
+        Remove-Item -Recurse -Force $TmpConfigInst
     }
 }
 

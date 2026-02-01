@@ -175,13 +175,25 @@ function install_game_menu() {
     mkdir -p "$instance_dir"
     
     # Create settings.sh
-    cat << EOF > "$instance_dir/settings.sh"
+    if [ "$selected_game" == "terraria" ]; then
+        cat << EOF > "$instance_dir/settings.sh"
+GAME="$selected_game"
+DESCRIPTION="$selected_game Server - $instance_name"
+INSTALL_PATH="$GAMES_DIR/$selected_game"
+SAVE_FILE="$instance_name"
+SETTINGS_FILE="serverconfig.txt"
+EOF
+        # Copy default config
+        cp "$GAMES_DIR/$selected_game/default_server_config.txt" "$instance_dir/serverconfig.txt"
+    else
+        cat << EOF > "$instance_dir/settings.sh"
 GAME="$selected_game"
 DESCRIPTION="$selected_game Server - $instance_name"
 INSTALL_PATH="$GAMES_DIR/$selected_game"
 SAVE_FILE="saves/save.zip"
 SETTINGS_FILE="server-settings.json"
 EOF
+    fi
     
     echo -e "${GREEN}Instance '$instance_name' created in $instance_dir${NC}"
     echo "Please upload your save file to $instance_dir/saves/ and configure settings.sh."
@@ -223,6 +235,12 @@ function manage_servers_menu() {
     
     # Load config
     source "$instance_dir/settings.sh"
+
+    # Auto-fix SETTINGS_FILE for Terraria if it was created with the wrong default
+    if [ "$GAME" == "terraria" ] && [ "$SETTINGS_FILE" == "server-settings.json" ]; then
+        sed -i 's/SETTINGS_FILE=.*/SETTINGS_FILE="serverconfig.txt"/' "$instance_dir/settings.sh"
+        source "$instance_dir/settings.sh"
+    fi
     
     # Check Backup Status
     local backup_script="$PROJECT_ROOT/scripts/backup.sh"
@@ -280,7 +298,16 @@ function manage_servers_menu() {
                 echo "Starting manually..."
                 chmod +x "$start_script"
                 # Resolve paths relative to instance dir for saves
-                local abs_save="$instance_dir/$SAVE_FILE"
+                local abs_save=""
+                if [ -n "$SAVE_FILE" ]; then
+                    if [[ "$SAVE_FILE" == */* ]]; then
+                        abs_save="$instance_dir/$SAVE_FILE"
+                    else
+                        abs_save="$SAVE_FILE"
+                    fi
+                elif [ "$GAME" == "terraria" ]; then
+                    abs_save="${SAVE_NAME:-$instance}"
+                fi
                 local abs_settings="$instance_dir/$SETTINGS_FILE"
                 
                 # Input Handling (Terraria needs console for initial setup usually)
@@ -322,6 +349,7 @@ function manage_servers_menu() {
             local editor="vi"
             if command -v nano &> /dev/null; then editor="nano"; fi
             
+            # Resolve target file (check if it exists in instance dir)
             local target_file="$instance_dir/$SETTINGS_FILE"
             if [ -f "$target_file" ]; then
                 $editor "$target_file"

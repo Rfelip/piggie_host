@@ -34,7 +34,10 @@ cd "$INSTALL_PATH" || exit 1
 if [ -f "$ZIP_NAME" ]; then
     echo "Archive exists, skipping download."
 else
-    echo "Downloading Terraria Server..."
+    echo "Installing Terraria Server..."
+# ... (rest of install logic)
+# Ensure the default config is in the games/terraria folder for the manager to find
+cp "$(dirname "$0")/default_server_config.txt" "$INSTALL_PATH/default_server_config.txt" 2>/dev/null || true
     wget -O "$ZIP_NAME" "$DOWNLOAD_URL"
     if [ $? -ne 0 ]; then
         echo -e "${RED}Download failed.${NC}"

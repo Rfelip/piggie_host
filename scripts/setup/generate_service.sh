@@ -22,7 +22,15 @@ echo "Generating systemd service for $INSTANCE_NAME..."
 # Build the start command logic
 # We need absolute paths for systemd
 START_SCRIPT="$PROJECT_ROOT/games/$GAME/start.sh"
-ABS_SAVE_FILE="$CONFIG_DIR/$SAVE_FILE"
+if [ -n "$SAVE_FILE" ]; then
+    if [[ "$SAVE_FILE" == */* ]]; then
+        ABS_SAVE_FILE="$CONFIG_DIR/$SAVE_FILE"
+    else
+        ABS_SAVE_FILE="$SAVE_FILE"
+    fi
+elif [ "$GAME" == "terraria" ]; then
+    ABS_SAVE_FILE="${SAVE_NAME:-$INSTANCE_NAME}"
+fi
 ABS_SETTINGS_FILE="$CONFIG_DIR/$SETTINGS_FILE"
 
 # Create the service file

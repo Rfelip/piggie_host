@@ -23,11 +23,30 @@ fi
 source "$CONFIG_DIR/settings.sh"
 
 # Resolve the absolute path of the save file
-# SAVE_FILE in settings is relative to CONFIG_DIR usually
-SAVE_PATH="$CONFIG_DIR/$SAVE_FILE"
+if [ "$GAME" == "terraria" ]; then
+    # Terraria worlds are in ~/.local/share/Terraria/Worlds
+    TERRARIA_SAVES_DIR="$HOME/.local/share/Terraria/Worlds"
+    
+    # Prioritize SAVE_FILE if it exists
+    if [ -n "$SAVE_FILE" ]; then
+        if [[ "$SAVE_FILE" == */* ]]; then
+            SAVE_PATH="$SAVE_FILE"
+        else
+            SAVE_PATH="$TERRARIA_SAVES_DIR/${SAVE_FILE}.wld"
+        fi
+    elif [ -n "$SAVE_NAME" ]; then
+        SAVE_PATH="$TERRARIA_SAVES_DIR/${SAVE_NAME}.wld"
+    else
+        # Fallback to instance name if nothing else defined
+        SAVE_PATH="$TERRARIA_SAVES_DIR/${INSTANCE_NAME}.wld"
+    fi
+else
+    # SAVE_FILE in settings is relative to CONFIG_DIR usually
+    SAVE_PATH="$CONFIG_DIR/$SAVE_FILE"
+fi
 
-if [ ! -f "$SAVE_PATH" ]; then
-    echo -e "${RED}Error: Save file not found at $SAVE_PATH${NC}"
+if [ ! -f "$SAVE_PATH" ] && [ ! -d "$SAVE_PATH" ]; then
+    echo -e "${RED}Error: Save file/folder not found at $SAVE_PATH${NC}"
     exit 1
 fi
 

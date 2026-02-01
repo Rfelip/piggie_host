@@ -1,3 +1,10 @@
 env/
 *.zip
 .gemini/
+.env
+configs/
+backups/
+deploy_code_tmp/
+deploy_config_tmp_*
+*.log
+saves/*

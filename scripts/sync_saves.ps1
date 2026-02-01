@@ -96,17 +96,47 @@ if ($UsePutty) {
 
 $GameType = "unknown"
 $ActiveSavePath = ""
+$SaveName = ""
 
 $SettingsContent -split "`n" | ForEach-Object {
     if ($_ -match "^GAME=`"(.*)`"") { $GameType = $matches[1] }
     if ($_ -match "^SAVE_FILE=`"(.*)`"") { $ActiveSavePath = $matches[1] }
+    if ($_ -match "^SAVE_NAME=`"(.*)`"") { $SaveName = $matches[1] }
+    if ($_ -match "^SETTINGS_FILE=`"(.*)`"") { $CurrentSettingsFile = $matches[1] }
+}
+
+# Auto-fix SETTINGS_FILE if it's wrong for Terraria
+if ($GameType -eq "terraria" -and $CurrentSettingsFile -eq "server-settings.json") {
+    Write-Host "  Detected incorrect SETTINGS_FILE for Terraria. Fixing..." -ForegroundColor Yellow
+    # Using a single-quoted string in PowerShell to avoid escape character issues
+    $FixCmd = 'sed -i "s/SETTINGS_FILE=.*/SETTINGS_FILE=\"serverconfig.txt\"/" ~/server_manager/configs/' + $SelectedInstance + '/settings.sh'
+    if ($UsePutty) { 
+        plink.exe -batch -ssh -i "$KeyPath" "$ServerUser@$ServerIP" $FixCmd 
+    }
+    else { 
+        $SSHArgs = @("-i", "$KeyPath", "$ServerUser@$ServerIP", $FixCmd)
+        ssh @SSHArgs
+    }
+    $CurrentSettingsFile = "serverconfig.txt"
 }
 
 $Meta = Get-GameMetadata -GameName $GameType
 $SaveFormat = if ($Meta) { $Meta["save_format"] } else { "file" } # default file
 
 Write-Host "Selected: $SelectedInstance ($GameType)" -ForegroundColor Green
-Write-Host "Active Save: $ActiveSavePath" -ForegroundColor Gray
+if ($GameType -eq "terraria") {
+    $ResolvedSave = if ($ActiveSavePath) { $ActiveSavePath } else { $SaveName }
+    if (-not $ResolvedSave) { $ResolvedSave = $SelectedInstance }
+    
+    if ($ResolvedSave -match "[/\\\\\\]") {
+        $ActiveSavePath = $ResolvedSave
+    } else {
+        $ActiveSavePath = "~/.local/share/Terraria/Worlds/$ResolvedSave.wld"
+    }
+    Write-Host "Active Save: $ResolvedSave" -ForegroundColor Gray
+} else {
+    Write-Host "Active Save: $ActiveSavePath" -ForegroundColor Gray
+}
 
 # --- Action Menu ---
 Write-Host ""
@@ -115,7 +145,11 @@ Write-Host "2) Download Save (Remote -> Local)"
 Write-Host "3) Quick Backup (Download Active Save with Timestamp)"
 $Action = Read-Host "Select action"
 
-$RemoteBasePath = "~/server_manager/configs/$SelectedInstance/saves"
+if ($GameType -eq "terraria") {
+    $RemoteBasePath = "~/.local/share/Terraria/Worlds"
+} else {
+    $RemoteBasePath = "~/server_manager/configs/$SelectedInstance/saves"
+}
 $LocalBasePath = Join-Path $ProjectRoot "saves\$GameType"
 
 # Ensure local folder exists
@@ -123,7 +157,7 @@ New-Item -ItemType Directory -Force -Path $LocalBasePath | Out-Null
 
 if ($Action -eq "1") {
     # ... (Upload logic remains same) ...
-    Write-Host "Local saves in $LocalBasePath:"
+    Write-Host "Local saves in ${LocalBasePath}:"
     $LocalFiles = Get-ChildItem -Path $LocalBasePath
     for ($i=0; $i -lt $LocalFiles.Count; $i++) {
         Write-Host "$($i+1)) $($LocalFiles[$i].Name)"
@@ -139,9 +173,9 @@ if ($Action -eq "1") {
         # But here we are uploading TO 'saves' folder.
         
         if ($UsePutty) {
-            pscp.exe -r -i "$KeyPath" "$($SourceItem.FullName)" "$ServerUser@$ServerIP`:$RemoteBasePath/"
+            pscp.exe -r -i "$KeyPath" "$($SourceItem.FullName)" "$ServerUser@$ServerIP`:${RemoteBasePath}/"
         } else {
-            $SCPArgs = @("-r", "$($SourceItem.FullName)", "$ServerUser@$ServerIP`:$RemoteBasePath/")
+            $SCPArgs = @("-r", "$($SourceItem.FullName)", "$ServerUser@$ServerIP`:${RemoteBasePath}/")
             if ($KeyPath) { $SCPArgs = @("-i", "$KeyPath") + $SCPArgs }
             scp @SCPArgs
         }
@@ -169,12 +203,12 @@ if ($Action -eq "1") {
     if ($FileSel -match "^\d+$" -and $FileSel -ge 1 -and $FileSel -le $RFileList.Count) {
         $TargetName = $RFileList[$FileSel-1]
         
-        Write-Host "Downloading $TargetName to $LocalBasePath..." -ForegroundColor Cyan
+        Write-Host "Downloading $TargetName to ${LocalBasePath}..." -ForegroundColor Cyan
         
         if ($UsePutty) {
-            pscp.exe -r -i "$KeyPath" "$ServerUser@$ServerIP`:$RemoteBasePath/$TargetName" "$LocalBasePath"
+            pscp.exe -r -i "$KeyPath" "$ServerUser@$ServerIP`:${RemoteBasePath}/$TargetName" "$LocalBasePath"
         } else {
-            $SCPArgs = @("-r", "$ServerUser@$ServerIP`:$RemoteBasePath/$TargetName", "$LocalBasePath")
+            $SCPArgs = @("-r", "$ServerUser@$ServerIP`:${RemoteBasePath}/$TargetName", "$LocalBasePath")
             if ($KeyPath) { $SCPArgs = @("-i", "$KeyPath") + $SCPArgs }
             scp @SCPArgs
         }
@@ -190,7 +224,11 @@ if ($Action -eq "1") {
     
     # ActiveSavePath is usually relative to instance dir (e.g., "saves/myworld.zip")
     # We need to construct the full remote path.
-    $RemoteSaveFull = "~/server_manager/configs/$SelectedInstance/$ActiveSavePath"
+    if ($ActiveSavePath -match "^(~|/)") {
+        $RemoteSaveFull = $ActiveSavePath
+    } else {
+        $RemoteSaveFull = "~/server_manager/configs/$SelectedInstance/$ActiveSavePath"
+    }
     
     # Construct Local Name
     $Timestamp = Get-Date -Format "yyyyMMdd_HHmmss"
@@ -209,12 +247,12 @@ if ($Action -eq "1") {
     
     Write-Host "Backing up active save: $ActiveSavePath" -ForegroundColor Cyan
     Write-Host "Source: $RemoteSaveFull" -ForegroundColor Gray
-    Write-Host "Destination: $TargetLocalPath" -ForegroundColor Gray
+    Write-Host "Destination: ${TargetLocalPath}" -ForegroundColor Gray
     
     if ($UsePutty) {
-        pscp.exe -r -i "$KeyPath" "$ServerUser@$ServerIP`:$RemoteSaveFull" "$TargetLocalPath"
+        pscp.exe -r -i "$KeyPath" "$ServerUser@$ServerIP`:${RemoteSaveFull}" "$TargetLocalPath"
     } else {
-        $SCPArgs = @("-r", "$ServerUser@$ServerIP`:$RemoteSaveFull", "$TargetLocalPath")
+        $SCPArgs = @("-r", "$ServerUser@$ServerIP`:${RemoteSaveFull}", "$TargetLocalPath")
         if ($KeyPath) { $SCPArgs = @("-i", "$KeyPath") + $SCPArgs }
         scp @SCPArgs
     }

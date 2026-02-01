@@ -8,49 +8,69 @@ NC='\033[0m'
 
 echo -e "${GREEN}=== Installing Dependencies ===${NC}"
 
-# Detect Package Manager
-if command -v apt-get &> /dev/null; then
-    PKG_MGR="apt-get"
-    INSTALL_CMD="sudo apt-get install -y"
-    UPDATE_CMD="sudo apt-get update"
-elif command -v yum &> /dev/null; then
-    PKG_MGR="yum"
-    INSTALL_CMD="sudo yum install -y"
-    UPDATE_CMD="sudo yum check-update"
-elif command -v pacman &> /dev/null; then
-    PKG_MGR="pacman"
-    INSTALL_CMD="sudo pacman -S --noconfirm"
-    UPDATE_CMD="sudo pacman -Sy"
-else
-    echo -e "${RED}Warning: Unsupported package manager. Please install dependencies manually.${NC}"
-    exit 0
+# Core tools to check
+CORE_TOOLS=("wget" "tar" "git" "nano" "zip" "unzip" "mono" "rclone")
+MISSING_TOOLS=()
+
+for tool in "${CORE_TOOLS[@]}"; do
+    if ! command -v "$tool" &> /dev/null; then
+        MISSING_TOOLS+=("$tool")
+    fi
+done
+
+# Check screen/tmux fallback
+if ! command -v screen &> /dev/null && ! command -v tmux &> /dev/null; then
+    MISSING_TOOLS+=("screen")
 fi
 
-# Update
-if [ -n "$PKG_MGR" ]; then
-    echo "Updating package lists..."
-    $UPDATE_CMD
+if [ ${#MISSING_TOOLS[@]} -eq 0 ]; then
+    echo -e "${GREEN}All core dependencies are already installed. Skipping package manager steps.${NC}"
+else
+    echo -e "${YELLOW}Missing dependencies: ${MISSING_TOOLS[*]}${NC}"
     
-    echo "Installing core tools..."
-    if [ "$PKG_MGR" == "pacman" ]; then
-        $INSTALL_CMD wget tar xz git nano zip unzip cronie rclone mono
-        sudo systemctl enable --now cronie
-    elif [ "$PKG_MGR" == "apt-get" ]; then
-        $INSTALL_CMD wget tar xz-utils git nano zip unzip cron rclone mono-complete
+    # Detect Package Manager
+    if command -v apt-get &> /dev/null; then
+        PKG_MGR="apt-get"
+        INSTALL_CMD="sudo apt-get install -y"
+        UPDATE_CMD="sudo apt-get update"
+    elif command -v yum &> /dev/null; then
+        PKG_MGR="yum"
+        INSTALL_CMD="sudo yum install -y"
+        UPDATE_CMD="sudo yum check-update"
+    elif command -v pacman &> /dev/null; then
+        PKG_MGR="pacman"
+        INSTALL_CMD="sudo pacman -S --noconfirm"
+        UPDATE_CMD="sudo pacman -Sy"
     else
-        $INSTALL_CMD wget tar xz-utils git nano zip unzip cron rclone
-        # Mono might be named differently on yum, usually mono-core or mono-complete
-        $INSTALL_CMD mono-core || echo "Warning: mono-core not found, skipping."
+        echo -e "${RED}Warning: Unsupported package manager. Please install dependencies manually.${NC}"
+        exit 0
     fi
-    
-    echo "Attempting to install 'screen'..."
-    $INSTALL_CMD screen
-    if [ $? -ne 0 ]; then
-        echo -e "${RED}Failed to install 'screen'. Attempting 'tmux'...${NC}"
-        $INSTALL_CMD tmux
-        if [ $? -ne 0 ]; then
-             echo -e "${RED}Failed to install 'tmux'. Terminal multiplexing unavailable.${NC}"
-             exit 1
+
+    # Update
+    if [ -n "$PKG_MGR" ]; then
+        LOG_FILE="/tmp/install_deps.log"
+        echo "Updating package lists (logging to $LOG_FILE)..."
+        $UPDATE_CMD > "$LOG_FILE" 2>&1
+        
+        echo "Installing core tools..."
+        if [ "$PKG_MGR" == "pacman" ]; then
+            $INSTALL_CMD wget tar xz git nano zip unzip cronie rclone mono >> "$LOG_FILE" 2>&1
+            sudo systemctl enable --now cronie >> "$LOG_FILE" 2>&1
+        elif [ "$PKG_MGR" == "apt-get" ]; then
+            $INSTALL_CMD wget tar xz-utils git nano zip unzip cron rclone mono-complete >> "$LOG_FILE" 2>&1
+        else
+            $INSTALL_CMD wget tar xz-utils git nano zip unzip cron rclone >> "$LOG_FILE" 2>&1
+            # Mono might be named differently on yum, usually mono-core or mono-complete
+            $INSTALL_CMD mono-core >> "$LOG_FILE" 2>&1 || echo "Warning: mono-core not found, skipping."
+        fi
+        
+        echo "Attempting to install 'screen'..."
+        if ! command -v screen &> /dev/null; then
+            $INSTALL_CMD screen >> "$LOG_FILE" 2>&1
+            if [ $? -ne 0 ] && ! command -v tmux &> /dev/null; then
+                echo -e "${RED}Failed to install 'screen'. Attempting 'tmux'...${NC}"
+                $INSTALL_CMD tmux >> "$LOG_FILE" 2>&1
+            fi
         fi
     fi
 fi

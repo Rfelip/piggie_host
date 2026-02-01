@@ -23,8 +23,11 @@ A generic, lightweight, and dependency-free utility for hosting game servers on 
 
 ## Project Structure
 
-*   `main.ps1`: **The Main Entry Point.** Local PowerShell script to deploy, manage, or sync saves.
+*   `main.ps1`: **The Main Entry Point.** Local PowerShell script to orchestrate the environment.
 *   `scripts/`: Core logic and utilities.
+    *   `deploy.ps1`: (Local) Pushes code and setup to remote.
+    *   `sync_saves.ps1`: (Local) Synchronizes game saves.
+    *   `sync_configs.ps1`: (Local) Synchronizes instance configurations.
     *   `setup/install_steamcmd.sh`: Automated SteamCMD installation.
 *   `games/`: Game plugins (Directory for each supported game).
 *   `configs/`: Server instances (e.g., `TBR2026`).
