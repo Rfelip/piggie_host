@@ -3,7 +3,7 @@
 # Updates Terraria Server binaries.
 
 INSTALL_PATH="$1"
-DOWNLOAD_URL="https://terraria.org/api/download/pc-dedicated-server/terraria-server-1449.zip"
+DOWNLOAD_URL="https://terraria.org/api/download/pc-dedicated-server/terraria-server-1454.zip"
 ZIP_NAME="terraria-server.zip"
 
 # Colors
