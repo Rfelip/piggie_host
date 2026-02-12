@@ -4,7 +4,7 @@
 
 INSTALL_PATH="$1"
 # Update this URL when new versions release
-DOWNLOAD_URL="https://terraria.org/api/download/pc-dedicated-server/terraria-server-1453.zip"
+DOWNLOAD_URL="https://terraria.org/api/download/pc-dedicated-server/terraria-server-1455.zip"
 ZIP_NAME="terraria-server.zip"
 
 # Colors
